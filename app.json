@@ -1,26 +1,45 @@
 {
   "expo": {
-    "name": "asistente-fabrica-alambres",
+    "name": "WireBot",
     "slug": "asistente-fabrica-alambres",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "plugins": [
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Esta aplicación necesita acceso al micrófono para reconocimiento de voz y asistencia en fabricación de alambres.",
+          "speechRecognitionPermission": "Esta aplicación necesita acceso al reconocimiento de voz para ayudar a los trabajadores con información de alambres."
+        }
+      ]
+    ],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "Permite que $(PRODUCT_NAME) use el reconocimiento de voz.",
+        "NSMicrophoneUsageDescription": "Permite que $(PRODUCT_NAME) use el micrófono para reconocimiento de voz."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET",
+        "android.permission.WAKE_LOCK"
+      ],
+      "package": "com.anonymous.asistentefabricaalambres"
     },
     "web": {
       "favicon": "./assets/favicon.png"
