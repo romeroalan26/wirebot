@@ -19,6 +19,7 @@ interface AgregarProcesoModalProps {
   visible: boolean;
   onClose: () => void;
   onSubmit: (datos: NuevoProcesoData) => void;
+  onBack?: () => void;
 }
 
 interface NuevoProcesoData {
@@ -37,6 +38,7 @@ export const AgregarProcesoModal: React.FC<AgregarProcesoModalProps> = ({
   visible,
   onClose,
   onSubmit,
+  onBack,
 }) => {
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
@@ -129,13 +131,53 @@ export const AgregarProcesoModal: React.FC<AgregarProcesoModalProps> = ({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <View style={styles.modalContainer}>
-          <View style={styles.header}>
+      <TouchableOpacity
+        activeOpacity={1}
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "rgba(0,0,0,0.5)",
+        }}
+        onPress={onClose}
+      >
+        <View
+          style={{
+            backgroundColor: "#fff",
+            borderRadius: 16,
+            padding: 20,
+            width: "90%",
+            maxWidth: 400,
+            position: "relative",
+          }}
+          onStartShouldSetResponder={() => true}
+          onTouchEnd={(e) => e.stopPropagation()}
+        >
+          {/* Botón Volver */}
+          <TouchableOpacity
+            style={{
+              position: "absolute",
+              left: 16,
+              top: 16,
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: "#F1F5F9",
+              justifyContent: "center",
+              alignItems: "center",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
+              shadowRadius: 4,
+              elevation: 2,
+              zIndex: 10,
+            }}
+            onPress={onBack ? onBack : onClose}
+          >
+            <Ionicons name="arrow-back" size={24} color="#3B82F6" />
+          </TouchableOpacity>
+          <View style={[styles.header, { marginTop: 32 }]}>
             <Text style={styles.title}>Agregar Nuevo Proceso</Text>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={24} color="#64748B" />
-            </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.scrollContent}>
@@ -198,7 +240,7 @@ export const AgregarProcesoModal: React.FC<AgregarProcesoModalProps> = ({
             </TouchableOpacity>
           </ScrollView>
         </View>
-      </View>
+      </TouchableOpacity>
     </Modal>
   );
 };

@@ -30,9 +30,12 @@ import {
 import { OptionsMenu } from "./src/components/OptionsMenu";
 import { LoginModal } from "./src/components/LoginModal";
 import { AgregarProcesoModal } from "./src/components/AgregarProcesoModal";
+import { EliminarProcesoModal } from "./src/components/EliminarProcesoModal";
 import { supabase } from "./supabaseClient";
+import { User } from "@supabase/supabase-js";
 
 interface Proceso {
+  id: string;
   titulo: string;
   descripcion: string;
   imagenes: string[];
@@ -69,6 +72,9 @@ const AsistenteVoz: React.FC = () => {
   } | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [showAgregarProceso, setShowAgregarProceso] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [showEliminarProceso, setShowEliminarProceso] = useState(false);
+  const [showAdminProcesosModal, setShowAdminProcesosModal] = useState(false);
 
   // Solo configuración de velocidad de voz - idioma fijo es-MX
   const [voiceSpeed, setVoiceSpeed] = useState(0.75); // Velocidad por defecto
@@ -100,19 +106,22 @@ const AsistenteVoz: React.FC = () => {
   });
 
   useSpeechRecognitionEvent("error", (event) => {
-    console.error("❌ Error en reconocimiento:", event);
-
-    // Traducir errores comunes al español
-    let mensajeError = "";
     const errorOriginal = event.message || event.error || "";
-
+    // Ignorar silenciosamente el error de no detectar voz
     if (
       errorOriginal.toLowerCase().includes("no speech") ||
       errorOriginal.toLowerCase().includes("speech not detected")
     ) {
-      mensajeError =
-        "🤫 No se detectó voz. Intenta hablar más cerca del micrófono.";
-    } else if (
+      setIsListening(false);
+      setTranscripcion("");
+      return;
+    }
+    console.error("❌ Error en reconocimiento:", event);
+
+    // Traducir errores comunes al español
+    let mensajeError = "";
+
+    if (
       errorOriginal.toLowerCase().includes("network") ||
       errorOriginal.toLowerCase().includes("internet")
     ) {
@@ -157,6 +166,33 @@ const AsistenteVoz: React.FC = () => {
     console.log("🚀 Iniciando AsistenteVoz...");
     cargarProcesos();
     verificarPermisos();
+  }, []);
+
+  // Verificar sesión actual al iniciar
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const {
+          data: { user: currentUser },
+          error,
+        } = await supabase.auth.getUser();
+        if (error) {
+          // Si el error es por sesión faltante, simplemente continuamos sin usuario
+          if (error.message.includes("Auth session missing")) {
+            console.log("No hay sesión activa");
+            return;
+          }
+          throw error;
+        }
+        if (currentUser) {
+          setUser(currentUser);
+        }
+      } catch (error) {
+        console.error("Error al verificar sesión:", error);
+      }
+    };
+
+    checkSession();
   }, []);
 
   const verificarPermisos = async () => {
@@ -232,6 +268,7 @@ const AsistenteVoz: React.FC = () => {
 
       // Convertir ProcesoSincronizado a Proceso (formato compatible)
       const procesosCompatibles: Proceso[] = procesosLocales.map((proceso) => ({
+        id: proceso.id,
         titulo: proceso.titulo,
         descripcion: proceso.descripcion,
         imagenes: proceso.imagenes.map((img) => img.data), // Solo el nombre/data
@@ -247,6 +284,7 @@ const AsistenteVoz: React.FC = () => {
         console.log(`🔄 ${nuevos} procesos nuevos sincronizados`);
         const procesosSincronizadosCompatibles = procesosSincronizados.map(
           (proceso) => ({
+            id: proceso.id,
             titulo: proceso.titulo,
             descripcion: proceso.descripcion,
             imagenes: proceso.imagenes.map((img) => img.data),
@@ -262,6 +300,7 @@ const AsistenteVoz: React.FC = () => {
       try {
         const procesosCache = await cargarProcesosCache();
         const procesosCompatibles = procesosCache.map((proceso) => ({
+          id: proceso.id,
           titulo: proceso.titulo,
           descripcion: proceso.descripcion,
           imagenes: proceso.imagenes.map((img) => img.data),
@@ -737,10 +776,11 @@ const AsistenteVoz: React.FC = () => {
     if (isLocal) {
       // Mapeo de nombres de imágenes locales a archivos
       const imageMap: { [key: string]: any } = {
-        "trefiladora-octavin-1": require("./assets/images/trefiladora-octavin-1.jpg"),
-        "trefiladora-octavin-2": require("./assets/images/trefiladora-octavin-2.jpg"),
-        "trefiladora-octavin-3": require("./assets/images/trefiladora-octavin-3.jpg"),
-        "trefiladora-octavin-4": require("./assets/images/trefiladora-octavin-4.jpg"),
+        // Comentamos las imágenes locales que no existen
+        // "trefiladora-octavin-1": require("./assets/images/trefiladora-octavin-1.jpg"),
+        // "trefiladora-octavin-2": require("./assets/images/trefiladora-octavin-2.jpg"),
+        // "trefiladora-octavin-3": require("./assets/images/trefiladora-octavin-3.jpg"),
+        // "trefiladora-octavin-4": require("./assets/images/trefiladora-octavin-4.jpg"),
       };
 
       return imageMap[imageName] || null;
@@ -778,9 +818,10 @@ const AsistenteVoz: React.FC = () => {
     setImagenAmpliada({ imagenes, indiceActual: nuevoIndice });
   };
 
-  const handleLoginSuccess = (user: any) => {
+  const handleLoginSuccess = (user: User) => {
     console.log("✅ Login exitoso:", user);
-    setShowAgregarProceso(true);
+    setUser(user);
+    setShowAdminProcesosModal(true);
   };
 
   const handleAgregarProceso = async (datos: NuevoProcesoData) => {
@@ -870,6 +911,27 @@ const AsistenteVoz: React.FC = () => {
     }
   };
 
+  const handleLogout = () => {
+    setUser(null);
+  };
+
+  const handleProcesoEliminado = async () => {
+    try {
+      // Limpiar el proceso seleccionado si es el que se eliminó
+      setProcesoSeleccionado(null);
+
+      // Recargar la lista de procesos
+      await cargarProcesos();
+
+      // Limpiar cualquier error o transcripción
+      setError("");
+      setTranscripcion("");
+    } catch (error) {
+      console.error("Error al actualizar después de eliminar:", error);
+      setError("Error al actualizar la lista de procesos");
+    }
+  };
+
   return (
     <>
       <StatusBar
@@ -907,7 +969,25 @@ const AsistenteVoz: React.FC = () => {
 
             {/* Sección de títulos centrados */}
             <View style={styles.titleSection}>
-              <Text style={styles.titulo}>MERCAPLAS</Text>
+              {/* Logo con fondo blanco */}
+              <View
+                style={[
+                  styles.logoContainer,
+                  {
+                    backgroundColor: "#fff",
+                    borderRadius: 45,
+                    padding: 10,
+                    alignSelf: "center",
+                    marginBottom: 8,
+                  },
+                ]}
+              >
+                <Image
+                  source={require("./assets/MERCAPLAS.png")}
+                  style={{ width: 90, height: 90, resizeMode: "contain" }}
+                />
+              </View>
+
               <Text style={styles.subtitulo}>
                 Asistente de Fábrica • Control por Voz
               </Text>
@@ -1173,76 +1253,131 @@ const AsistenteVoz: React.FC = () => {
           animationType="slide"
           onRequestClose={() => setShowInstructions(false)}
         >
-          <View style={styles.modalContainer}>
-            <View style={[styles.modalContent, styles.modalInstrucciones]}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitulo}>📖 Guía de Uso</Text>
-                <TouchableOpacity
-                  style={styles.botonCerrarModal}
-                  onPress={() => setShowInstructions(false)}
-                >
-                  <Ionicons name="close" size={24} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                style={styles.instruccionesScroll}
-                showsVerticalScrollIndicator={false}
+          <TouchableOpacity
+            activeOpacity={1}
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.5)",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+            onPress={() => setShowInstructions(false)}
+          >
+            <View
+              style={{
+                backgroundColor: "#fff",
+                borderRadius: 16,
+                padding: 20,
+                width: "90%",
+                maxWidth: 400,
+                position: "relative",
+              }}
+            >
+              {/* Botón Volver */}
+              <TouchableOpacity
+                style={{
+                  position: "absolute",
+                  left: 16,
+                  top: 16,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: "#F1F5F9",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 4,
+                  elevation: 2,
+                  zIndex: 10,
+                }}
+                onPress={() => {
+                  // Cerrar el modal correspondiente y mostrar el menú de opciones principal
+                  setShowInstructions(false); // o setShowVoiceConfig(false), setShowListModal(false) según el modal
+                  setShowOptionsMenu(true);
+                }}
               >
-                <Text style={styles.categoriaTexto}>
-                  🔧 Preguntas de Fabricación:
+                <Ionicons name="arrow-back" size={24} color="#3B82F6" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitulo}>📖 Guía de Uso</Text>
+              <ScrollView
+                style={[styles.instruccionesScroll, { maxHeight: 400 }]}
+                showsVerticalScrollIndicator={true}
+              >
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: "bold",
+                    color: "#1D4ED8",
+                    marginBottom: 16,
+                    textAlign: "center",
+                  }}
+                >
+                  Guía de Uso
                 </Text>
-                <Text style={styles.ejemploTexto}>
-                  • "dame los diámetros para alambre 10"
+                <Text
+                  style={{ fontSize: 16, color: "#374151", marginBottom: 12 }}
+                >
+                  <Text style={{ fontWeight: "bold" }}>
+                    ¿Qué es esta aplicación?
+                  </Text>
+                  {"\n"}
+                  Esta app te permite consultar y administrar procesos de
+                  fábrica de{" "}
+                  <Text style={{ color: "#3B82F6", fontWeight: "bold" }}>
+                    MERCAPLAS
+                  </Text>{" "}
+                  de manera sencilla usando tu voz o el menú.
                 </Text>
-                <Text style={styles.ejemploTexto}>
-                  • "qué bobina necesito para alambre 12"
+                <Text
+                  style={{ fontSize: 16, color: "#374151", marginBottom: 12 }}
+                >
+                  <Text style={{ fontWeight: "bold" }}>¿Qué puedes hacer?</Text>
+                  {"\n"}• Buscar información de procesos de{" "}
+                  <Text style={{ color: "#3B82F6", fontWeight: "bold" }}>
+                    MERCAPLAS
+                  </Text>{" "}
+                  usando comandos de voz o texto.{"\n"}• Ver la lista de
+                  procesos disponibles.{"\n"}• Agregar o eliminar procesos
+                  (requiere iniciar sesión).{"\n"}• Configurar la velocidad de
+                  la voz.
                 </Text>
-                <Text style={styles.ejemploTexto}>
-                  • "cómo configuro la máquina para alambre 14"
+                <Text
+                  style={{ fontSize: 16, color: "#374151", marginBottom: 12 }}
+                >
+                  <Text style={{ fontWeight: "bold" }}>
+                    ¿Cómo usar el reconocimiento de voz?
+                  </Text>
+                  {"\n"}
+                  1. Pulsa el botón de micrófono y di el nombre o tipo de
+                  proceso que buscas.{"\n"}
+                  2. Espera la respuesta hablada y visual.{"\n"}
+                  3. Si no se reconoce tu voz, puedes escribir el comando
+                  manualmente.
                 </Text>
-                <Text style={styles.ejemploTexto}>
-                  • "qué materiales lleva el alambre 16"
+                <Text
+                  style={{ fontSize: 16, color: "#374151", marginBottom: 12 }}
+                >
+                  <Text style={{ fontWeight: "bold" }}>
+                    ¿Cómo administrar procesos?
+                  </Text>
+                  {"\n"}
+                  1. Abre el menú y selecciona "Administrar Procesos".{"\n"}
+                  2. Inicia sesión si es necesario.{"\n"}
+                  3. Elige si quieres agregar o eliminar procesos.
                 </Text>
-
-                <Text style={styles.categoriaTexto}>
-                  ⚙️ Configuración Técnica:
-                </Text>
-                <Text style={styles.ejemploTexto}>
-                  • "cuál es la velocidad del alambre 10"
-                </Text>
-                <Text style={styles.ejemploTexto}>
-                  • "qué tensión usa el alambre 12"
-                </Text>
-                <Text style={styles.ejemploTexto}>
-                  • "cuántos amperes aguanta el alambre 14"
-                </Text>
-
-                <Text style={styles.categoriaTexto}>📋 Proceso Completo:</Text>
-                <Text style={styles.ejemploTexto}>
-                  • "cómo fabrico alambre número 10"
-                </Text>
-                <Text style={styles.ejemploTexto}>
-                  • "proceso completo alambre 12"
-                </Text>
-
-                <Text style={styles.categoriaTexto}>🎯 Búsquedas Rápidas:</Text>
-                <Text style={styles.ejemploTexto}>
-                  • "alambre para iluminación"
-                </Text>
-                <Text style={styles.ejemploTexto}>
-                  • "lista todos los alambres"
-                </Text>
-
-                <Text style={styles.infoTexto}>
-                  💡 Pregunta como si estuvieras hablando con un supervisor
-                  experimentado de MERCAPLAS. El sistema entiende preguntas
-                  específicas sobre fabricación y te dará respuestas detalladas
-                  paso a paso.
+                <Text
+                  style={{ fontSize: 16, color: "#374151", marginBottom: 12 }}
+                >
+                  <Text style={{ fontWeight: "bold" }}>Consejos:</Text>
+                  {"\n"}• Usa palabras claras y directas al hablar.{"\n"}• Si
+                  tienes problemas con el micrófono, revisa los permisos en tu
+                  dispositivo.
                 </Text>
               </ScrollView>
             </View>
-          </View>
+          </TouchableOpacity>
         </Modal>
 
         {/* Modal de lista de procesos */}
@@ -1252,18 +1387,54 @@ const AsistenteVoz: React.FC = () => {
           animationType="slide"
           onRequestClose={() => setShowListModal(false)}
         >
-          <View style={styles.modalContainer}>
-            <View style={[styles.modalContent, styles.modalLista]}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitulo}>📋 Seleccionar Proceso</Text>
-                <TouchableOpacity
-                  style={styles.botonCerrarModal}
-                  onPress={() => setShowListModal(false)}
-                >
-                  <Ionicons name="close" size={24} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-
+          <TouchableOpacity
+            activeOpacity={1}
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.5)",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+            onPress={() => setShowListModal(false)}
+          >
+            <View
+              style={{
+                backgroundColor: "#fff",
+                borderRadius: 16,
+                padding: 20,
+                width: "90%",
+                maxWidth: 400,
+                position: "relative",
+              }}
+            >
+              {/* Botón Volver */}
+              <TouchableOpacity
+                style={{
+                  position: "absolute",
+                  left: 16,
+                  top: 16,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: "#F1F5F9",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 4,
+                  elevation: 2,
+                  zIndex: 10,
+                }}
+                onPress={() => {
+                  // Cerrar el modal correspondiente y mostrar el menú de opciones principal
+                  setShowListModal(false);
+                  setShowOptionsMenu(true);
+                }}
+              >
+                <Ionicons name="arrow-back" size={24} color="#3B82F6" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitulo}>📋 Seleccionar Proceso</Text>
               <Text style={styles.modalSubtitulo}>
                 Elige el nombre de proceso que necesitas:
               </Text>
@@ -1289,7 +1460,7 @@ const AsistenteVoz: React.FC = () => {
               ) : (
                 <FlatList
                   data={procesos}
-                  keyExtractor={(item) => item.titulo}
+                  keyExtractor={(item) => item.id}
                   renderItem={({ item }) => (
                     <TouchableOpacity
                       style={styles.itemProceso}
@@ -1321,7 +1492,7 @@ const AsistenteVoz: React.FC = () => {
                 />
               )}
             </View>
-          </View>
+          </TouchableOpacity>
         </Modal>
 
         {/* Modal de configuración de voz */}
@@ -1331,18 +1502,54 @@ const AsistenteVoz: React.FC = () => {
           animationType="slide"
           onRequestClose={() => setShowVoiceConfig(false)}
         >
-          <View style={styles.modalContainer}>
-            <View style={[styles.modalContent, styles.modalConfigVoz]}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitulo}>🎤 Configuración de Voz</Text>
-                <TouchableOpacity
-                  style={styles.botonCerrarModal}
-                  onPress={() => setShowVoiceConfig(false)}
-                >
-                  <Ionicons name="close" size={24} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-
+          <TouchableOpacity
+            activeOpacity={1}
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.5)",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+            onPress={() => setShowVoiceConfig(false)}
+          >
+            <View
+              style={{
+                backgroundColor: "#fff",
+                borderRadius: 16,
+                padding: 20,
+                width: "90%",
+                maxWidth: 400,
+                position: "relative",
+              }}
+            >
+              {/* Botón Volver */}
+              <TouchableOpacity
+                style={{
+                  position: "absolute",
+                  left: 16,
+                  top: 16,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: "#F1F5F9",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 4,
+                  elevation: 2,
+                  zIndex: 10,
+                }}
+                onPress={() => {
+                  // Cerrar el modal correspondiente y mostrar el menú de opciones principal
+                  setShowVoiceConfig(false);
+                  setShowOptionsMenu(true);
+                }}
+              >
+                <Ionicons name="arrow-back" size={24} color="#3B82F6" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitulo}>🎤 Configuración de Voz</Text>
               <ScrollView
                 style={styles.configScroll}
                 showsVerticalScrollIndicator={false}
@@ -1387,7 +1594,7 @@ const AsistenteVoz: React.FC = () => {
                 </TouchableOpacity>
               </ScrollView>
             </View>
-          </View>
+          </TouchableOpacity>
         </Modal>
 
         {/* Replace the old menu modal with the new OptionsMenu component */}
@@ -1397,10 +1604,17 @@ const AsistenteVoz: React.FC = () => {
           onShowInstructions={() => setShowInstructions(true)}
           onShowVoiceConfig={() => setShowVoiceConfig(true)}
           onShowListModal={() => setShowListModal(true)}
-          onShowAgregarProceso={() => {
+          onShowAdminProcesos={() => {
             setShowOptionsMenu(false);
-            setShowLogin(true);
+            // Si no está logueado, mostrar login; si sí, mostrar submenú de admin
+            if (!user) {
+              setShowLogin(true);
+            } else {
+              setShowAdminProcesosModal(true);
+            }
           }}
+          user={user}
+          onLogout={handleLogout}
         />
 
         {/* Botón flotante de limpiar cuando hay contenido */}
@@ -1512,7 +1726,141 @@ const AsistenteVoz: React.FC = () => {
         visible={showAgregarProceso}
         onClose={() => setShowAgregarProceso(false)}
         onSubmit={handleAgregarProceso}
+        onBack={() => {
+          setShowAgregarProceso(false);
+          setShowOptionsMenu(true);
+        }}
       />
+
+      <EliminarProcesoModal
+        visible={showEliminarProceso}
+        onClose={() => setShowEliminarProceso(false)}
+        procesos={procesos}
+        onProcesoEliminado={handleProcesoEliminado}
+        onBack={() => {
+          setShowEliminarProceso(false);
+          setShowOptionsMenu(true);
+        }}
+      />
+
+      {/* Modal de administración de procesos */}
+      <Modal
+        visible={showAdminProcesosModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAdminProcesosModal(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+          onPress={() => setShowAdminProcesosModal(false)}
+        >
+          <View
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 16,
+              padding: 24,
+              width: "85%",
+              maxWidth: 400,
+              alignItems: "center",
+              position: "relative",
+            }}
+          >
+            {/* Botón Volver */}
+            <TouchableOpacity
+              style={{
+                position: "absolute",
+                left: 16,
+                top: 16,
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: "#F1F5F9",
+                justifyContent: "center",
+                alignItems: "center",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 4,
+                elevation: 2,
+                zIndex: 10,
+              }}
+              onPress={() => {
+                // Cerrar el modal correspondiente y mostrar el menú de opciones principal
+                setShowAdminProcesosModal(false);
+                setShowOptionsMenu(true);
+              }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#3B82F6" />
+            </TouchableOpacity>
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: "bold",
+                marginBottom: 24,
+                color: "#1F2937",
+              }}
+            >
+              Administrar Procesos
+            </Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: "#10B981",
+                padding: 16,
+                borderRadius: 10,
+                marginBottom: 16,
+                width: "100%",
+                alignItems: "center",
+              }}
+              onPress={() => {
+                setShowAdminProcesosModal(false);
+                setShowAgregarProceso(true);
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>
+                Agregar Proceso
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                backgroundColor: "#EF4444",
+                padding: 16,
+                borderRadius: 10,
+                marginBottom: 16,
+                width: "100%",
+                alignItems: "center",
+              }}
+              onPress={() => {
+                setShowAdminProcesosModal(false);
+                setShowEliminarProceso(true);
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>
+                Eliminar Procesos
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                backgroundColor: "#64748B",
+                padding: 12,
+                borderRadius: 8,
+                width: "100%",
+                alignItems: "center",
+              }}
+              onPress={() => setShowAdminProcesosModal(false)}
+            >
+              <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>
+                Cerrar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </>
   );
 };
@@ -2405,6 +2753,11 @@ const styles = StyleSheet.create({
     color: "#64748B",
     textAlign: "center",
     lineHeight: 24,
+  },
+  logoContainer: {
+    borderWidth: 2,
+    borderColor: "#E2E8F0",
+    padding: 4,
   },
 });
 
