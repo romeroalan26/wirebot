@@ -35,3 +35,15 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# IDE configuration files (prevent conflicts with Android Studio/Eclipse)
+**/.project
+**/.classpath
+**/.settings/
+**/.buildpath
+**/.metadata/
+.idea/
+*.iml
+*.iws
+.vscode/settings.json
+.vscode/launch.json

@@ -1,0 +1,47 @@
+[
+  {
+    "titulo": "Proceso de trefiladora principal \"OCTAVIN\"",
+    "descripcion": "1-Se empieza colocando el octavín 3.5 mm en la parte tracera de la máquina de trefilado.\n2-se procede a limpiar la maquina con desgrasante para remover las suciedad y óxidos\n3- se enhebra la maquina dando vueltas por las ruedas y al final de las vueltas donde sale el cobre se le coloca el dado 1.000\n4- se coloca la bobina H6  en los rodamientos para su debido enrollado según los pies que indica el lote.\n5- se verifica el recocido y vapor.\nNota. el mismo proceso para el diámetro 1.21",
+    "imagenes": [
+      "trefiladora-octavin-1",
+      "trefiladora-octavin-2",
+      "trefiladora-octavin-3",
+      "trefiladora-octavin-4"
+    ]
+  },
+  {
+    "titulo": "Proceso de galvanizado en caliente",
+    "descripcion": "1-Preparar la solución de zinc fundido a 450°C en el horno principal.\n2-Limpiar el alambre con ácido muriático para remover óxidos.\n3-Enjuagar con agua destilada y secar completamente.\n4-Sumergir el alambre en la solución de zinc por 3-5 minutos.\n5-Retirar y enfriar gradualmente al aire libre.\n6-Verificar el espesor del galvanizado con medidor de capas.\nNota: Usar equipo de protección completo durante todo el proceso.",
+    "imagenes": [
+      "https://via.placeholder.com/300x200/F59E0B/FFFFFF?text=Horno+Galvanizado",
+      "https://via.placeholder.com/300x200/EF4444/FFFFFF?text=Proceso+Zinc",
+      "https://via.placeholder.com/300x200/10B981/FFFFFF?text=Alambre+Galvanizado"
+    ]
+  },
+  {
+    "titulo": "Proceso de recocido de alambre de cobre",
+    "descripcion": "1-Colocar el alambre en el horno de recocido a 500°C.\n2-Mantener temperatura constante por 2 horas para alambre grueso, 1 hora para alambre fino.\n3-Aplicar atmósfera controlada con nitrógeno para evitar oxidación.\n4-Enfriar lentamente dentro del horno hasta 200°C.\n5-Retirar y enfriar al aire hasta temperatura ambiente.\n6-Verificar flexibilidad y conductividad eléctrica.\nResultado: Alambre suave y maleable listo para trefilado.",
+    "imagenes": [
+      "https://via.placeholder.com/300x200/DC2626/FFFFFF?text=Horno+Recocido",
+      "https://via.placeholder.com/300x200/B91C1C/FFFFFF?text=Alambre+Cobre"
+    ]
+  },
+  {
+    "titulo": "Proceso de control de calidad alambre AWG",
+    "descripcion": "1-Tomar muestra cada 100 metros de producción.\n2-Medir diámetro con micrómetro digital en 5 puntos diferentes.\n3-Probar resistencia eléctrica con multímetro de precisión.\n4-Verificar resistencia a la tracción con máquina de ensayos.\n5-Revisar uniformidad del galvanizado o revestimiento.\n6-Documentar resultados en planilla de control.\n7-Marcar lote como APROBADO o RECHAZADO según especificaciones.\nTolerancias: ±0.02mm en diámetro, ±5% en resistencia.",
+    "imagenes": [
+      "https://via.placeholder.com/300x200/3B82F6/FFFFFF?text=Control+Calidad",
+      "https://via.placeholder.com/300x200/1D4ED8/FFFFFF?text=Micrómetro",
+      "https://via.placeholder.com/300x200/2563EB/FFFFFF?text=Planilla+Control"
+    ]
+  },
+  {
+    "titulo": "Proceso de enrollado en bobinas H6",
+    "descripcion": "1-Preparar bobina H6 verificando que esté limpia y sin defectos.\n2-Fijar el extremo del alambre en el núcleo de la bobina.\n3-Configurar máquina enrolladora a 150 RPM para alambre grueso, 200 RPM para fino.\n4-Mantener tensión constante de 15 kg para evitar deformaciones.\n5-Enrollar de forma uniforme evitando cruces o solapamientos.\n6-Al completar los metros requeridos, cortar y fijar el extremo final.\n7-Etiquetar bobina con: calibre, metros, fecha, lote y operario.\nCapacidad típica: 500-1000 metros según calibre.",
+    "imagenes": [
+      "https://via.placeholder.com/300x200/059669/FFFFFF?text=Enrollado+Bobina",
+      "https://via.placeholder.com/300x200/047857/FFFFFF?text=Máquina+Enrolladora",
+      "https://via.placeholder.com/300x200/065F46/FFFFFF?text=Bobina+H6"
+    ]
+  }
+]

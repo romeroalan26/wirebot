@@ -11,6 +11,7 @@ import {
   Modal,
   StatusBar,
   Platform,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Speech from "expo-speech";
@@ -19,28 +20,17 @@ import {
   useSpeechRecognitionEvent,
 } from "expo-speech-recognition";
 
-interface Alambre {
-  numero: number;
-  diametro: string;
-  hilo: string;
-  bobina: string;
-  tuerca: string;
-  pesoMetro: string;
-  resistencia: string;
-  temperaturaMaxima: string;
-  velocidadMaquina: string;
-  tensionRecomendada: string;
-  amperaje: string;
-  aplicacion: string;
-  colorCodigo: string;
-  materialExtra: string;
+interface Proceso {
+  titulo: string;
+  descripcion: string;
+  imagenes: string[];
 }
 
 const AsistenteVoz: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
-  const [alambres, setAlambres] = useState<Alambre[]>([]);
-  const [alambreSeleccionado, setAlambreSeleccionado] =
-    useState<Alambre | null>(null);
+  const [procesos, setProcesos] = useState<Proceso[]>([]);
+  const [procesoSeleccionado, setProcesoSeleccionado] =
+    useState<Proceso | null>(null);
   const [error, setError] = useState<string>("");
   const [transcripcion, setTranscripcion] = useState<string>("");
   const [showManualInput, setShowManualInput] = useState(false);
@@ -51,6 +41,10 @@ const AsistenteVoz: React.FC = () => {
   const [showListModal, setShowListModal] = useState(false);
   const [showVoiceConfig, setShowVoiceConfig] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [imagenAmpliada, setImagenAmpliada] = useState<{
+    imagenes: string[];
+    indiceActual: number;
+  } | null>(null);
 
   // Solo configuración de velocidad de voz - idioma fijo es-MX
   const [voiceSpeed, setVoiceSpeed] = useState(0.75); // Velocidad por defecto
@@ -134,10 +128,10 @@ const AsistenteVoz: React.FC = () => {
     setTranscripcion("");
   });
 
-  // Cargar datos de alambres al inicializar el componente
+  // Cargar datos de procesos al inicializar el componente
   useEffect(() => {
     console.log("🚀 Iniciando AsistenteVoz...");
-    cargarAlambres();
+    cargarProcesos();
     verificarPermisos();
   }, []);
 
@@ -198,146 +192,39 @@ const AsistenteVoz: React.FC = () => {
       } else {
         console.log("✅ Permisos concedidos exitosamente");
         setError("");
-
-        // Confirmar al usuario que ya puede usar la función
-        Alert.alert(
-          "✅ ¡Listo!",
-          "Permisos concedidos. Ahora puedes usar el reconocimiento de voz.",
-          [{ text: "Entendido" }]
-        );
       }
-    } catch (error) {
-      console.error("❌ Error al verificar permisos:", error);
-
-      Alert.alert(
-        "❌ Error de Permisos",
-        `Error al solicitar permisos: ${(error as any)?.message || error}\n\n` +
-          "Intenta reiniciar la aplicación o concede permisos manualmente en la configuración del dispositivo.",
-        [{ text: "Entendido" }]
-      );
-
-      setError(
-        `Error al verificar permisos: ${
-          (error as any)?.message || "Error desconocido"
-        }`
-      );
-      setPermissionGranted(false);
+    } catch (err) {
+      console.error("❌ Error al verificar permisos:", err);
+      setError("❌ Error al verificar permisos de micrófono");
     }
   };
 
-  const cargarAlambres = async () => {
+  const cargarProcesos = async () => {
     try {
-      console.log("📂 Cargando datos de alambres...");
-      const datosAlambres = require("./assets/alambres.json");
-      setAlambres(datosAlambres);
+      console.log("📂 Cargando datos de procesos...");
+      const datosProcesos = require("./assets/procesos.json");
+      setProcesos(datosProcesos);
       console.log(
-        "✅ Datos de alambres cargados:",
-        datosAlambres.length,
-        "alambres"
+        "✅ Datos de procesos cargados:",
+        datosProcesos.length,
+        "procesos"
       );
     } catch (err) {
-      console.error("❌ Error al cargar alambres:", err);
+      console.error("❌ Error al cargar procesos:", err);
       console.log("🔄 Usando datos de respaldo...");
 
-      const datosRespaldo: Alambre[] = [
+      const datosRespaldo: Proceso[] = [
         {
-          numero: 8,
-          diametro: "3.26 mm",
-          hilo: "Cobre 2.0mm",
-          bobina: "Bobina A - Grande",
-          tuerca: "Tuerca T1 - 15mm",
-          pesoMetro: "83.6 g/m",
-          resistencia: "5.27 Ω/km",
-          temperaturaMaxima: "75°C",
-          velocidadMaquina: "720 rpm",
-          tensionRecomendada: "18 kg",
-          amperaje: "32 A",
-          aplicacion: "Instalaciones principales",
-          colorCodigo: "#FF6B35",
-          materialExtra: "Aislamiento PVC estándar",
-        },
-        {
-          numero: 10,
-          diametro: "2.59 mm",
-          hilo: "Cobre 1.5mm",
-          bobina: "Bobina A - Grande",
-          tuerca: "Tuerca T1 - 15mm",
-          pesoMetro: "52.5 g/m",
-          resistencia: "8.43 Ω/km",
-          temperaturaMaxima: "60°C",
-          velocidadMaquina: "850 rpm",
-          tensionRecomendada: "15 kg",
-          amperaje: "24 A",
-          aplicacion: "Circuitos de iluminación",
-          colorCodigo: "#4ECDC4",
-          materialExtra: "Aislamiento PVC flexible",
-        },
-        {
-          numero: 12,
-          diametro: "2.05 mm",
-          hilo: "Cobre 1.2mm",
-          bobina: "Bobina B - Mediana",
-          tuerca: "Tuerca T2 - 12mm",
-          pesoMetro: "33.0 g/m",
-          resistencia: "13.4 Ω/km",
-          temperaturaMaxima: "60°C",
-          velocidadMaquina: "950 rpm",
-          tensionRecomendada: "12 kg",
-          amperaje: "20 A",
-          aplicacion: "Tomacorrientes residenciales",
-          colorCodigo: "#45B7D1",
-          materialExtra: "Aislamiento PVC estándar",
-        },
-        {
-          numero: 14,
-          diametro: "1.63 mm",
-          hilo: "Cobre 1.0mm",
-          bobina: "Bobina B - Mediana",
-          tuerca: "Tuerca T2 - 12mm",
-          pesoMetro: "20.8 g/m",
-          resistencia: "21.3 Ω/km",
-          temperaturaMaxima: "60°C",
-          velocidadMaquina: "1100 rpm",
-          tensionRecomendada: "10 kg",
-          amperaje: "15 A",
-          aplicacion: "Circuitos de control",
-          colorCodigo: "#96CEB4",
-          materialExtra: "Aislamiento PVC fino",
-        },
-        {
-          numero: 16,
-          diametro: "1.29 mm",
-          hilo: "Cobre 0.8mm",
-          bobina: "Bobina C - Pequeña",
-          tuerca: "Tuerca T3 - 10mm",
-          pesoMetro: "13.1 g/m",
-          resistencia: "33.9 Ω/km",
-          temperaturaMaxima: "60°C",
-          velocidadMaquina: "1250 rpm",
-          tensionRecomendada: "8 kg",
-          amperaje: "10 A",
-          aplicacion: "Señalización y control",
-          colorCodigo: "#FFEAA7",
-          materialExtra: "Aislamiento PVC delgado",
-        },
-        {
-          numero: 18,
-          diametro: "1.02 mm",
-          hilo: "Cobre 0.6mm",
-          bobina: "Bobina C - Pequeña",
-          tuerca: "Tuerca T3 - 10mm",
-          pesoMetro: "8.2 g/m",
-          resistencia: "53.9 Ω/km",
-          temperaturaMaxima: "60°C",
-          velocidadMaquina: "1400 rpm",
-          tensionRecomendada: "6 kg",
-          amperaje: "7 A",
-          aplicacion: "Conexiones internas",
-          colorCodigo: "#DDA0DD",
-          materialExtra: "Aislamiento PVC ultrafino",
+          titulo: 'Proceso de trefiladora principal "OCTAVIN"',
+          descripcion:
+            "1-Se empieza colocando el octavín 3.5 mm en la parte tracera de la máquina de trefilado.\n2-se procede a limpiar la maquina con desgrasante para remover las suciedad y óxidos\n3- se enhebra la maquina dando vueltas por las ruedas y al final de las vueltas donde sale el cobre se le coloca el dado 1.000\n4- se coloca la bobina H6  en los rodamientos para su debido enrollado según los pies que indica el lote.\n5- se verifica el recocido y vapor.\nNota. el mismo proceso para el diámetro 1.21",
+          imagenes: [
+            "/assets/images/trefiladora-octavin-1.jpg",
+            "/assets/images/trefiladora-octavin-2.jpg",
+          ],
         },
       ];
-      setAlambres(datosRespaldo);
+      setProcesos(datosRespaldo);
       console.log("✅ Datos de respaldo cargados");
     }
   };
@@ -346,209 +233,132 @@ const AsistenteVoz: React.FC = () => {
     console.log("🎙️ Procesando comando de voz:", texto);
     const textoLimpio = texto.toLowerCase().trim();
 
-    // 1. BUSCAR POR NÚMERO DE ALAMBRE (múltiples patrones)
-    const numeroEncontrado = buscarNumeroAlambre(textoLimpio);
-    if (numeroEncontrado) {
-      buscarAlambre(numeroEncontrado);
+    // 1. BUSCAR POR NOMBRE DE PROCESO
+    const procesoEncontrado = buscarProceso(textoLimpio);
+    if (procesoEncontrado) {
+      mostrarProceso(procesoEncontrado);
       return;
     }
 
-    // 2. BUSCAR POR APLICACIÓN
-    const alambresEncontrados = buscarPorAplicacion(textoLimpio);
-    if (alambresEncontrados.length > 0) {
-      mostrarResultadosAplicacion(alambresEncontrados, textoLimpio);
-      return;
-    }
-
-    // 3. PREGUNTAS ESPECÍFICAS DE FABRICACIÓN
-    const respuestaEspecifica = procesarPreguntaEspecifica(textoLimpio);
-    if (respuestaEspecifica) {
-      mostrarRespuestaEspecifica(respuestaEspecifica);
-      return;
-    }
-
-    // 4. BUSCAR POR CARACTERÍSTICAS TÉCNICAS
-    const alambrePorCaracteristica = buscarPorCaracteristica(textoLimpio);
-    if (alambrePorCaracteristica) {
-      buscarAlambre(alambrePorCaracteristica.numero);
-      return;
-    }
-
-    // 5. COMANDOS ESPECIALES
+    // 2. COMANDOS ESPECIALES
     if (manejarComandosEspeciales(textoLimpio)) {
       return;
     }
 
-    // 5. NO SE ENCONTRÓ NADA - SUGERENCIAS INTELIGENTES
+    // 3. NO SE ENCONTRÓ NADA - SUGERENCIAS INTELIGENTES
     console.log("❌ No se detectó comando válido en:", texto);
     const sugerencia = generarSugerenciaInteligente(textoLimpio);
     setError(`No se reconoció el comando "${texto}". ${sugerencia}`);
     hablar(`No se reconoció el comando. ${sugerencia}`);
   };
 
-  const buscarNumeroAlambre = (texto: string): number | null => {
-    // Patrones para números de alambre
+  const buscarProceso = (texto: string): Proceso | null => {
+    console.log("🔍 Buscando proceso en texto:", texto);
+
+    // Patrones para buscar procesos específicos
     const patrones = [
-      // Patrones directos
-      /(?:alambre|cable)\s*(?:número|numero|num|n[oº]?)\s*(\d+)/gi,
-      /(?:número|numero|num|n[oº]?)\s*(\d+)/gi,
-      /alambre\s*(\d+)/gi,
-      /cable\s*(\d+)/gi,
+      // TREFILADORA/OCTAVIN
+      {
+        palabras: ["trefiladora", "octavin", "octavín", "trefilar"],
+        buscar: ["octavin", "trefiladora"],
+      },
 
-      // Frases naturales
-      /(?:dame|busca|quiero|necesito|dime|cuál es|cual es)\s*(?:el\s*)?(?:alambre|cable)\s*(?:número|numero|num|n[oº]?)?\s*(\d+)/gi,
-      /(?:información|info|datos)\s*(?:del|de)\s*(?:alambre|cable)\s*(?:número|numero|num|n[oº]?)?\s*(\d+)/gi,
-      /(?:especificaciones|specs|características)\s*(?:del|de)\s*(?:alambre|cable)\s*(?:número|numero|num|n[oº]?)?\s*(\d+)/gi,
+      // GALVANIZADO
+      {
+        palabras: ["galvanizado", "galvanizar", "zinc", "galvan"],
+        buscar: ["galvanizado"],
+      },
 
-      // Patrones conversacionales para bobinas, tuercas, etc.
-      /(?:qué|que)\s*(?:bobina|carrete|rollo)\s*(?:necesito|uso|ocupo)\s*(?:para|del|de)\s*(?:el\s*)?(?:alambre|cable)\s*(?:número|numero|num|n[oº]?)?\s*(\d+)/gi,
-      /(?:qué|que)\s*(?:tuerca|ajuste|tornillo)\s*(?:necesito|uso|ocupo)\s*(?:para|del|de)\s*(?:el\s*)?(?:alambre|cable)\s*(?:número|numero|num|n[oº]?)?\s*(\d+)/gi,
-      /(?:cómo|como)\s*(?:configuro|ajusto|pongo)\s*(?:la\s*máquina|la\s*maquina)\s*(?:para|del|de)\s*(?:el\s*)?(?:alambre|cable)\s*(?:número|numero|num|n[oº]?)?\s*(\d+)/gi,
-      /(?:qué|que)\s*(?:diámetro|diametro|grosor|medida)\s*(?:tiene|es)\s*(?:el\s*)?(?:alambre|cable)\s*(?:número|numero|num|n[oº]?)?\s*(\d+)/gi,
+      // RECOCIDO
+      {
+        palabras: ["recocido", "recocer", "horno", "temple", "ablandar"],
+        buscar: ["recocido"],
+      },
 
-      // Solo números (cuando es claro el contexto)
-      /^(\d+)$/gi,
-      /(?:^|\s)(\d+)(?:\s|$)/gi,
+      // CONTROL DE CALIDAD
+      {
+        palabras: [
+          "calidad",
+          "control",
+          "medicion",
+          "medición",
+          "prueba",
+          "ensayo",
+          "awg",
+        ],
+        buscar: ["control", "calidad"],
+      },
+
+      // ENROLLADO
+      {
+        palabras: ["enrollado", "enrollar", "bobina", "carrete", "h6"],
+        buscar: ["enrollado", "bobina"],
+      },
     ];
 
-    // Convertir números en texto a dígitos
-    const textoConDigitos = convertirNumerosTextoADigitos(texto);
-
+    // Buscar por patrones específicos
     for (const patron of patrones) {
-      const match = patron.exec(textoConDigitos);
-      if (match && match[1]) {
-        const numero = parseInt(match[1], 10);
-        if (numero >= 8 && numero <= 18) {
-          console.log("🔍 Número de alambre encontrado:", numero);
-          return numero;
-        }
-      }
-      patron.lastIndex = 0; // Reset regex
-    }
+      for (const palabra of patron.palabras) {
+        if (texto.includes(palabra)) {
+          console.log(`✅ Palabra clave encontrada: ${palabra}`);
 
-    return null;
-  };
-
-  const convertirNumerosTextoADigitos = (texto: string): string => {
-    const numerosTexto: { [key: string]: string } = {
-      cero: "0",
-      uno: "1",
-      dos: "2",
-      tres: "3",
-      cuatro: "4",
-      cinco: "5",
-      seis: "6",
-      siete: "7",
-      ocho: "8",
-      nueve: "9",
-      diez: "10",
-      once: "11",
-      doce: "12",
-      trece: "13",
-      catorce: "14",
-      quince: "15",
-      dieciséis: "16",
-      dieciseis: "16",
-      diecisiete: "17",
-      dieciocho: "18",
-    };
-
-    let textoModificado = texto;
-    for (const [palabra, digito] of Object.entries(numerosTexto)) {
-      const regex = new RegExp(`\\b${palabra}\\b`, "gi");
-      textoModificado = textoModificado.replace(regex, digito);
-    }
-
-    return textoModificado;
-  };
-
-  const buscarPorAplicacion = (texto: string): Alambre[] => {
-    const aplicaciones: { [key: string]: string[] } = {
-      "instalaciones principales": [
-        "principal",
-        "principales",
-        "general",
-        "generales",
-      ],
-      "circuitos de iluminación": [
-        "iluminación",
-        "iluminacion",
-        "luz",
-        "luces",
-        "luminaria",
-        "luminarias",
-      ],
-      "tomacorrientes residenciales": [
-        "tomacorriente",
-        "tomacorrientes",
-        "enchufe",
-        "enchufes",
-        "residencial",
-        "casa",
-        "hogar",
-      ],
-      "circuitos de control": [
-        "control",
-        "controles",
-        "automatización",
-        "automatizacion",
-      ],
-      "señalización y control": [
-        "señalización",
-        "senalizacion",
-        "señal",
-        "señales",
-        "senal",
-        "senales",
-      ],
-      "conexiones internas": [
-        "interno",
-        "interna",
-        "internos",
-        "internas",
-        "conexion",
-        "conexiones",
-      ],
-    };
-
-    const resultados: Alambre[] = [];
-
-    for (const [aplicacion, keywords] of Object.entries(aplicaciones)) {
-      for (const keyword of keywords) {
-        if (texto.includes(keyword)) {
-          const alambre = alambres.find(
-            (a) => a.aplicacion.toLowerCase() === aplicacion
-          );
-          if (alambre && !resultados.find((r) => r.numero === alambre.numero)) {
-            resultados.push(alambre);
+          // Buscar proceso que contenga alguna de las palabras de búsqueda
+          for (const busqueda of patron.buscar) {
+            const proceso = procesos.find((p) =>
+              p.titulo.toLowerCase().includes(busqueda)
+            );
+            if (proceso) {
+              console.log(`✅ Proceso encontrado: ${proceso.titulo}`);
+              return proceso;
+            }
           }
         }
       }
     }
 
-    return resultados;
+    // Patrones de comandos generales
+    const patronesGenerales = [
+      /(?:proceso|cómo|como)\s*(?:de|del|de\s*la)?\s*(?:trefiladora|trefilar|octavin|octavín|galvanizado|recocido|calidad|enrollado)/gi,
+      /(?:qué|que)\s*(?:hago|proceso|procedimiento)\s*(?:para|de|del)?\s*(?:trefilar|galvanizar|recocer|controlar|enrollar)/gi,
+      /(?:procedimiento|método|pasos)\s*(?:para|de|del)?\s*(?:trefiladora|galvanizado|recocido|calidad|enrollado)/gi,
+    ];
+
+    for (const patron of patronesGenerales) {
+      if (patron.test(texto)) {
+        console.log(
+          "✅ Patrón general encontrado, buscando primer proceso disponible"
+        );
+        if (procesos.length > 0) {
+          return procesos[0]; // Devolver el primer proceso si no hay coincidencia específica
+        }
+      }
+      patron.lastIndex = 0; // Reset regex
+    }
+
+    // Búsqueda fuzzy por palabras clave en títulos
+    for (const proceso of procesos) {
+      const tituloLower = proceso.titulo.toLowerCase();
+      const palabrasTexto = texto.split(/\s+/);
+
+      for (const palabra of palabrasTexto) {
+        if (palabra.length > 3 && tituloLower.includes(palabra)) {
+          console.log(
+            `✅ Coincidencia fuzzy encontrada: ${palabra} en ${proceso.titulo}`
+          );
+          return proceso;
+        }
+      }
+    }
+
+    console.log("❌ No se encontró proceso para:", texto);
+    return null;
   };
 
-  const buscarPorCaracteristica = (texto: string): Alambre | null => {
-    // Buscar por diámetro
-    const patronDiametro = /(\d+(?:\.\d+)?)\s*mm/gi;
-    const matchDiametro = patronDiametro.exec(texto);
-    if (matchDiametro) {
-      const diametro = matchDiametro[1];
-      const alambre = alambres.find((a) => a.diametro.includes(diametro));
-      if (alambre) return alambre;
-    }
-
-    // Buscar por amperaje
-    const patronAmperaje = /(\d+)\s*(?:ampere|amper|amp|a)\b/gi;
-    const matchAmperaje = patronAmperaje.exec(texto);
-    if (matchAmperaje) {
-      const amperaje = matchAmperaje[1];
-      const alambre = alambres.find((a) => a.amperaje.includes(amperaje));
-      if (alambre) return alambre;
-    }
-
-    return null;
+  const mostrarProceso = (proceso: Proceso) => {
+    console.log("💬 Mostrando proceso:", proceso.titulo);
+    setProcesoSeleccionado(proceso);
+    setError("");
+    hablar(proceso.descripcion);
   };
 
   const manejarComandosEspeciales = (texto: string): boolean => {
@@ -562,244 +372,89 @@ const AsistenteVoz: React.FC = () => {
       return true;
     }
 
-    // Listar todos los alambres
+    // Listar todos los procesos
     if (
       texto.includes("lista") ||
       texto.includes("todos") ||
       texto.includes("disponibles")
     ) {
-      listarTodosLosAlambres();
+      listarTodosLosProcesos();
       return true;
     }
 
     return false;
   };
 
-  const mostrarResultadosAplicacion = (
-    alambresEncontrados: Alambre[],
-    busqueda: string
-  ) => {
-    if (alambresEncontrados.length === 1) {
-      buscarAlambre(alambresEncontrados[0].numero);
-    } else {
-      const opciones = alambresEncontrados
-        .map((a) => `Alambre ${a.numero}`)
-        .join(", ");
-      const mensaje = `Encontré ${alambresEncontrados.length} alambres para "${busqueda}": ${opciones}. ¿Cuál necesitas?`;
-      setError(mensaje);
-      hablar(mensaje);
-
-      // Mostrar selector con los resultados
-      Alert.alert("Múltiples Resultados", mensaje, [
-        ...alambresEncontrados.map((alambre) => ({
-          text: `Alambre ${alambre.numero}`,
-          onPress: () => buscarAlambre(alambre.numero),
-        })),
-        { text: "Cancelar", style: "cancel" },
-      ]);
-    }
-  };
-
   const mostrarAyuda = () => {
-    const mensaje = `Puedes usar comandos como: "alambre número 10", "cable para iluminación", "dame información del 12", "cuál alambre uso para tomacorrientes", o simplemente di el número.`;
+    const mensaje = `Puedes usar comandos como: "proceso OCTAVIN", "cómo hacer trefiladora", "dame información del OCTAVIN", "cuál proceso uso para trefiladora", o simplemente di el nombre.`;
     setError(mensaje);
     hablar(mensaje);
   };
 
-  const listarTodosLosAlambres = () => {
-    const lista = alambres
-      .map((a) => `Alambre ${a.numero} para ${a.aplicacion}`)
-      .join(", ");
-    const mensaje = `Alambres disponibles: ${lista}`;
+  const listarTodosLosProcesos = () => {
+    const lista = procesos.map((p) => `Proceso: ${p.titulo}`).join(", ");
+    const mensaje = `Procesos disponibles: ${lista}`;
     setError(mensaje);
-    hablar(`Tenemos ${alambres.length} tipos de alambre disponibles. ${lista}`);
-  };
-
-  const procesarPreguntaEspecifica = (texto: string) => {
-    // Extraer número de alambre de la pregunta
-    const numeroAlambre = buscarNumeroAlambre(texto);
-    if (!numeroAlambre) return null;
-
-    const alambre = alambres.find((a) => a.numero === numeroAlambre);
-    if (!alambre) return null;
-
-    // Patrones de preguntas específicas
-    const preguntasPatrones = [
-      // Diámetros y medidas
-      {
-        patrones: [
-          /diámetro|diametro|medida|grosor|tamaño/i,
-          /(?:qué|que)\s*(?:diámetro|diametro|grosor|medida)\s*(?:tiene|es)/i,
-        ],
-        tipo: "diametro",
-        respuesta: `El alambre ${alambre.numero} tiene un diámetro de ${alambre.diametro}. Vas a necesitar hilo de cobre de ${alambre.hilo}.`,
-      },
-
-      // Bobinas
-      {
-        patrones: [
-          /bobina|carrete|rollo/i,
-          /(?:qué|que)\s*(?:bobina|carrete|rollo)\s*(?:necesito|uso|ocupo)/i,
-        ],
-        tipo: "bobina",
-        respuesta: `Para armar un alambre ${alambre.numero} necesitarás una ${alambre.bobina}. Es la bobina perfecta para este calibre.`,
-      },
-
-      // Tuercas y ajustes
-      {
-        patrones: [
-          /tuerca|ajuste|tornillo|sujeción|sujecion/i,
-          /(?:qué|que)\s*(?:tuerca|ajuste|tornillo)\s*(?:necesito|uso|ocupo)/i,
-        ],
-        tipo: "tuerca",
-        respuesta: `Para el alambre ${alambre.numero} vas a usar ${alambre.tuerca}. Con esta tuerca tendrás el ajuste perfecto.`,
-      },
-
-      // Configuración de máquina
-      {
-        patrones: [
-          /máquina|maquina|velocidad|configurar|configuro|rpm/i,
-          /(?:cómo|como)\s*(?:configuro|ajusto|pongo)\s*(?:la\s*máquina|la\s*maquina)/i,
-        ],
-        tipo: "maquina",
-        respuesta: `Para el alambre ${alambre.numero} debes configurar la máquina a ${alambre.velocidadMaquina} con tensión de ${alambre.tensionRecomendada}. Recuerda no pasar de ${alambre.temperaturaMaxima}.`,
-      },
-
-      // Materiales
-      {
-        patrones: [/material|materiales|cobre|hilo/i],
-        tipo: "materiales",
-        respuesta: `Para armar un alambre ${alambre.numero} necesitas hilo de cobre ${alambre.hilo} y ${alambre.materialExtra}. El peso final será de ${alambre.pesoMetro}.`,
-      },
-
-      // Especificaciones eléctricas
-      {
-        patrones: [/eléctric|electrico|amperaje|amperes|resistencia|ohm/i],
-        tipo: "electrico",
-        respuesta: `El alambre ${alambre.numero} maneja ${alambre.amperaje} con una resistencia de ${alambre.resistencia}. Perfecto para ${alambre.aplicacion}.`,
-      },
-
-      // Proceso completo
-      {
-        patrones: [/proceso|fabricar|hacer|producir|cómo|como/i],
-        tipo: "proceso",
-        respuesta: `Proceso completo para alambre número ${alambre.numero}: 
-                   1. Preparar hilo ${alambre.hilo}
-                   2. Instalar ${alambre.bobina} 
-                   3. Ajustar ${alambre.tuerca}
-                   4. Configurar máquina: ${alambre.velocidadMaquina}, tensión ${alambre.tensionRecomendada}
-                   5. Aplicar ${alambre.materialExtra}
-                   Resultado: Diámetro ${alambre.diametro}, ${alambre.amperaje}, para ${alambre.aplicacion}.`,
-      },
-    ];
-
-    // Buscar qué tipo de pregunta es
-    for (const pregunta of preguntasPatrones) {
-      for (const patron of pregunta.patrones) {
-        if (patron.test(texto)) {
-          return {
-            alambre,
-            tipo: pregunta.tipo,
-            respuesta: pregunta.respuesta,
-            preguntaOriginal: texto,
-          };
-        }
-      }
-    }
-
-    return null;
-  };
-
-  const mostrarRespuestaEspecifica = (respuesta: any) => {
-    console.log("💬 Mostrando respuesta específica:", respuesta.tipo);
-
-    // Configurar la transcripción con la pregunta
-    setTranscripcion(`Pregunta: "${respuesta.preguntaOriginal}"`);
-
-    // Mostrar el alambre seleccionado
-    setAlambreSeleccionado(respuesta.alambre);
-
-    // Limpiar errores
-    setError("");
-
-    // Hablar la respuesta específica
-    hablar(respuesta.respuesta);
-
-    // Mostrar alert específico para la pregunta
-    const titulo = `🔧 Alambre ${respuesta.alambre.numero} - ${getTituloTipo(
-      respuesta.tipo
-    )}`;
-    Alert.alert(titulo, respuesta.respuesta, [
-      { text: "🔊 Repetir", onPress: () => hablar(respuesta.respuesta) },
-      {
-        text: "📋 Ver Todo",
-        onPress: () => leerDatosAlambre(respuesta.alambre),
-      },
-      { text: "✅ Entendido", style: "default" },
-    ]);
-  };
-
-  const getTituloTipo = (tipo: string): string => {
-    const titulos: { [key: string]: string } = {
-      diametro: "Diámetros y Medidas",
-      bobina: "Bobinas Requeridas",
-      tuerca: "Ajustes y Tuercas",
-      maquina: "Configuración Máquina",
-      materiales: "Materiales Necesarios",
-      electrico: "Especificaciones Eléctricas",
-      proceso: "Proceso de Fabricación",
-    };
-    return titulos[tipo] || "Información Técnica";
+    hablar(
+      `Tenemos ${procesos.length} tipos de procesos disponibles. ${lista}`
+    );
   };
 
   const generarSugerenciaInteligente = (texto: string): string => {
     const sugerencias = [
-      'Intenta decir "alambre número 10" o "qué bobina necesito para alambre 12"',
-      'Puedes preguntar "qué diámetro tiene el alambre 10" o "cómo configuro la máquina para alambre 12"',
-      'También puedes decir "qué tuerca uso para alambre 14" o "dame información del alambre 16"',
-      'Pregunta natural como "que necesito para armar un alambre 12"',
+      'Intenta decir "proceso OCTAVIN" o "cómo hacer trefiladora"',
+      'Puedes preguntar "proceso de galvanizado" o "cómo galvanizar alambre"',
+      'También puedes decir "proceso de recocido" o "cómo recocer alambre"',
+      'Pregunta "control de calidad" o "cómo controlar la calidad"',
+      'Di "proceso de enrollado" o "cómo enrollar en bobinas"',
+      'Pregunta natural como "qué proceso necesito para galvanizar"',
     ];
+
+    // Sugerencias específicas basadas en palabras detectadas
+    if (texto.includes("trefilar") || texto.includes("octavin")) {
+      return 'Detecté que preguntas sobre trefilado. Intenta decir "proceso OCTAVIN" o "trefiladora principal".';
+    }
+
+    if (texto.includes("galvan") || texto.includes("zinc")) {
+      return 'Detecté que preguntas sobre galvanizado. Intenta decir "proceso de galvanizado" o "galvanizar alambre".';
+    }
+
+    if (
+      texto.includes("horno") ||
+      texto.includes("recocer") ||
+      texto.includes("temple")
+    ) {
+      return 'Detecté que preguntas sobre recocido. Intenta decir "proceso de recocido" o "recocer alambre".';
+    }
+
+    if (
+      texto.includes("calidad") ||
+      texto.includes("control") ||
+      texto.includes("medicion")
+    ) {
+      return 'Detecté que preguntas sobre control. Intenta decir "control de calidad" o "proceso de control".';
+    }
+
+    if (
+      texto.includes("bobina") ||
+      texto.includes("enrollar") ||
+      texto.includes("carrete")
+    ) {
+      return 'Detecté que preguntas sobre enrollado. Intenta decir "proceso de enrollado" o "enrollar bobinas".';
+    }
 
     // Si contiene números pero no reconocidos, sugerir formato correcto
     if (/\d+/.test(texto)) {
-      return 'Detecté un número. Intenta decir "alambre número" seguido del número.';
+      return 'Detecté un número. Los procesos se buscan por nombre, como "proceso OCTAVIN" o "galvanizado".';
     }
 
     // Si menciona aplicaciones pero no reconocidas
     if (texto.includes("para") || texto.includes("usar")) {
-      return 'Puedes buscar por aplicación como "alambre para iluminación" o "cable para tomacorrientes".';
+      return 'Puedes buscar por proceso como "proceso para galvanizar" o "proceso para trefilar".';
     }
 
     // Sugerencia aleatoria
     return sugerencias[Math.floor(Math.random() * sugerencias.length)];
-  };
-
-  const buscarAlambre = (numero: number) => {
-    console.log("🔍 Buscando alambre número:", numero);
-    const alambre = alambres.find((a) => a.numero === numero);
-
-    if (alambre) {
-      console.log("✅ Alambre encontrado:", alambre);
-      setAlambreSeleccionado(alambre);
-      setError("");
-      leerDatosAlambre(alambre);
-    } else {
-      console.log("❌ Alambre no encontrado:", numero);
-      setError(`No se encontró información para el alambre número ${numero}`);
-      setAlambreSeleccionado(null);
-      hablar(`No se encontró información para el alambre número ${numero}`);
-    }
-  };
-
-  const leerDatosAlambre = (alambre: Alambre) => {
-    const mensaje = `Aquí tienes todo sobre el alambre ${alambre.numero}. 
-                     Tiene un diámetro de ${alambre.diametro} y vas a usar hilo de cobre ${alambre.hilo}.
-                     Necesitarás una ${alambre.bobina} y ${alambre.tuerca}, además de ${alambre.materialExtra}.
-                     Configura la máquina a ${alambre.velocidadMaquina} con tensión de ${alambre.tensionRecomendada}.
-                     Maneja ${alambre.amperaje} con resistencia de ${alambre.resistencia}.
-                     Es ideal para ${alambre.aplicacion}.`;
-    console.log("🔊 Reproduciendo información completa del alambre");
-    hablar(mensaje);
   };
 
   // Función para obtener la configuración de voz - siempre es-MX
@@ -827,12 +482,7 @@ const AsistenteVoz: React.FC = () => {
       setIsSpeaking(true);
 
       // Configuración simplificada y confiable
-      const configuracion = {
-        language: "es",
-        pitch: 1.1,
-        rate: 0.7,
-        volume: 1.0,
-      };
+      const configuracion = obtenerConfiguracionVozLatina();
 
       console.log("🎤 Configuración de voz:", configuracion);
 
@@ -906,7 +556,7 @@ const AsistenteVoz: React.FC = () => {
       // Limpiar estados
       setError("");
       setTranscripcion("");
-      setAlambreSeleccionado(null);
+      setProcesoSeleccionado(null);
 
       // Configurar opciones de reconocimiento
       const options = {
@@ -990,14 +640,19 @@ const AsistenteVoz: React.FC = () => {
     setShowListModal(true);
   };
 
-  const seleccionarAlambreDeModal = (numero: number) => {
+  const seleccionarProcesoDeModal = (titulo: string) => {
     setShowListModal(false);
-    buscarAlambre(numero);
+    const proceso = procesos.find(
+      (p) => p.titulo.toLowerCase() === titulo.toLowerCase()
+    );
+    if (proceso) {
+      mostrarProceso(proceso);
+    }
   };
 
   const limpiarPantalla = () => {
     console.log("🧹 Limpiando pantalla");
-    setAlambreSeleccionado(null);
+    setProcesoSeleccionado(null);
     setError("");
     setTranscripcion("");
     if (isSpeaking) {
@@ -1032,6 +687,41 @@ const AsistenteVoz: React.FC = () => {
     }
   };
 
+  const getLocalImageSource = (imageName: string) => {
+    // Mapeo de nombres de imágenes a archivos locales
+    const imageMap: { [key: string]: any } = {
+      "trefiladora-octavin-1": require("./assets/images/trefiladora-octavin-1.jpg"),
+      "trefiladora-octavin-2": require("./assets/images/trefiladora-octavin-2.jpg"),
+      "trefiladora-octavin-3": require("./assets/images/trefiladora-octavin-3.jpg"),
+      "trefiladora-octavin-4": require("./assets/images/trefiladora-octavin-4.jpg"),
+    };
+
+    return imageMap[imageName] || null;
+  };
+
+  const abrirVisorImagenes = (imagenes: string[], indice: number) => {
+    setImagenAmpliada({ imagenes, indiceActual: indice });
+  };
+
+  const cerrarVisorImagenes = () => {
+    setImagenAmpliada(null);
+  };
+
+  const navegarImagen = (direccion: "anterior" | "siguiente") => {
+    if (!imagenAmpliada) return;
+
+    const { imagenes, indiceActual } = imagenAmpliada;
+    let nuevoIndice = indiceActual;
+
+    if (direccion === "anterior") {
+      nuevoIndice = indiceActual > 0 ? indiceActual - 1 : imagenes.length - 1;
+    } else {
+      nuevoIndice = indiceActual < imagenes.length - 1 ? indiceActual + 1 : 0;
+    }
+
+    setImagenAmpliada({ imagenes, indiceActual: nuevoIndice });
+  };
+
   return (
     <>
       <StatusBar
@@ -1054,19 +744,6 @@ const AsistenteVoz: React.FC = () => {
               </View>
 
               <View style={styles.topBarRight}>
-                {(alambreSeleccionado || error || transcripcion) && (
-                  <TouchableOpacity
-                    style={styles.botonLimpiar}
-                    onPress={limpiarPantalla}
-                  >
-                    <Ionicons
-                      name="refresh-outline"
-                      size={24}
-                      color="#FFFFFF"
-                    />
-                  </TouchableOpacity>
-                )}
-
                 <TouchableOpacity
                   style={styles.botonMenu}
                   onPress={() => setShowOptionsMenu(true)}
@@ -1190,133 +867,110 @@ const AsistenteVoz: React.FC = () => {
             </View>
           )}
 
-          {alambreSeleccionado && (
+          {procesoSeleccionado && (
             <View style={styles.resultadoContainer}>
               <Text style={styles.resultadoTitulo}>
-                Información del Alambre
+                Información del Proceso
               </Text>
 
               <View style={styles.datosContainer}>
                 {/* Datos básicos destacados */}
                 <View style={[styles.datoItem, styles.datoDestacado]}>
-                  <Text style={styles.datoLabel}>🔌 Número:</Text>
-                  <Text style={[styles.datoValor, styles.numeroDestacado]}>
-                    {alambreSeleccionado.numero}
+                  <View style={styles.tituloContainer}>
+                    <Text style={styles.datoLabel}>🔌 Título:</Text>
+                    <Text style={[styles.datoValor, styles.tituloDestacado]}>
+                      {procesoSeleccionado.titulo}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Sección de descripción */}
+                <Text style={styles.seccionTitulo}>📋 DESCRIPCIÓN</Text>
+
+                <View style={[styles.datoItem, styles.descripcionItem]}>
+                  <Text style={styles.datoLabel}>🔩 Descripción:</Text>
+                  <Text style={styles.descripcionTexto}>
+                    {procesoSeleccionado.descripcion}
                   </Text>
                 </View>
 
-                <View style={[styles.datoItem, styles.datoDestacado]}>
-                  <Text style={styles.datoLabel}>📏 Diámetro:</Text>
-                  <Text style={[styles.datoValor, styles.valorDestacado]}>
-                    {alambreSeleccionado.diametro}
-                  </Text>
-                </View>
+                {/* Sección de imágenes */}
+                <Text style={styles.seccionTitulo}>🖼️ IMÁGENES</Text>
 
-                {/* Sección de materiales */}
-                <Text style={styles.seccionTitulo}>📦 MATERIALES</Text>
-
-                <View style={styles.datoItem}>
-                  <Text style={styles.datoLabel}>🔩 Hilo de Cobre:</Text>
+                {procesoSeleccionado.imagenes &&
+                procesoSeleccionado.imagenes.length > 0 ? (
+                  <View style={styles.imagenesContainer}>
+                    {procesoSeleccionado.imagenes.map((imagen, index) => {
+                      const localImageSource = getLocalImageSource(imagen);
+                      return (
+                        <TouchableOpacity
+                          key={index}
+                          style={styles.imagenWrapper}
+                          onPress={() =>
+                            abrirVisorImagenes(
+                              procesoSeleccionado.imagenes,
+                              index
+                            )
+                          }
+                          activeOpacity={0.8}
+                        >
+                          <Image
+                            source={
+                              localImageSource
+                                ? localImageSource
+                                : { uri: imagen }
+                            }
+                            style={styles.imagenProceso}
+                            resizeMode="contain"
+                          />
+                          <View style={styles.imagenFooter}>
+                            <Text style={styles.imagenNumero}>
+                              Imagen {index + 1}
+                            </Text>
+                            <Ionicons
+                              name="expand-outline"
+                              size={16}
+                              color="#FFFFFF"
+                            />
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : (
                   <Text style={styles.datoValor}>
-                    {alambreSeleccionado.hilo}
+                    No hay imágenes disponibles
                   </Text>
-                </View>
-
-                <View style={styles.datoItem}>
-                  <Text style={styles.datoLabel}>📦 Bobina:</Text>
-                  <Text style={styles.datoValor}>
-                    {alambreSeleccionado.bobina}
-                  </Text>
-                </View>
-
-                <View style={styles.datoItem}>
-                  <Text style={styles.datoLabel}>🔧 Tuerca:</Text>
-                  <Text style={styles.datoValor}>
-                    {alambreSeleccionado.tuerca}
-                  </Text>
-                </View>
-
-                <View style={styles.datoItem}>
-                  <Text style={styles.datoLabel}>🛡️ Material Extra:</Text>
-                  <Text style={styles.datoValor}>
-                    {alambreSeleccionado.materialExtra}
-                  </Text>
-                </View>
-
-                {/* Sección de especificaciones técnicas */}
-                <Text style={styles.seccionTitulo}>⚡ ESPECIFICACIONES</Text>
-
-                <View style={styles.datoItem}>
-                  <Text style={styles.datoLabel}>⚖️ Peso/Metro:</Text>
-                  <Text style={styles.datoValor}>
-                    {alambreSeleccionado.pesoMetro}
-                  </Text>
-                </View>
-
-                <View style={styles.datoItem}>
-                  <Text style={styles.datoLabel}>⚡ Resistencia:</Text>
-                  <Text style={styles.datoValor}>
-                    {alambreSeleccionado.resistencia}
-                  </Text>
-                </View>
-
-                <View style={styles.datoItem}>
-                  <Text style={styles.datoLabel}>🔌 Amperaje:</Text>
-                  <Text style={styles.datoValor}>
-                    {alambreSeleccionado.amperaje}
-                  </Text>
-                </View>
-
-                <View style={styles.datoItem}>
-                  <Text style={styles.datoLabel}>🌡️ Temp. Máxima:</Text>
-                  <Text style={styles.datoValor}>
-                    {alambreSeleccionado.temperaturaMaxima}
-                  </Text>
-                </View>
-
-                {/* Sección de configuración de máquina */}
-                <Text style={styles.seccionTitulo}>⚙️ CONFIGURACIÓN</Text>
-
-                <View style={styles.datoItem}>
-                  <Text style={styles.datoLabel}>⚙️ Velocidad Máquina:</Text>
-                  <Text style={styles.datoValor}>
-                    {alambreSeleccionado.velocidadMaquina}
-                  </Text>
-                </View>
-
-                <View style={styles.datoItem}>
-                  <Text style={styles.datoLabel}>💪 Tensión:</Text>
-                  <Text style={styles.datoValor}>
-                    {alambreSeleccionado.tensionRecomendada}
-                  </Text>
-                </View>
-
-                {/* Aplicación */}
-                <View style={[styles.datoItem, styles.aplicacionItem]}>
-                  <Text style={styles.datoLabel}>🎯 Aplicación:</Text>
-                  <Text style={[styles.datoValor, styles.aplicacionTexto]}>
-                    {alambreSeleccionado.aplicacion}
-                  </Text>
-                </View>
+                )}
               </View>
 
-              <TouchableOpacity
-                style={[
-                  styles.botonLeerNuevamente,
-                  isSpeaking && styles.botonLeerDeshabilitado,
-                ]}
-                onPress={() => leerDatosAlambre(alambreSeleccionado)}
-                disabled={isSpeaking}
-              >
-                <Ionicons
-                  name={isSpeaking ? "volume-high" : "volume-high-outline"}
-                  size={20}
-                  color="#fff"
-                />
-                <Text style={styles.textoBotonLeer}>
-                  {isSpeaking ? "Reproduciendo..." : "Leer nuevamente"}
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.botonesAccion}>
+                <TouchableOpacity
+                  style={[
+                    styles.botonLeerNuevamente,
+                    isSpeaking && styles.botonLeerDeshabilitado,
+                  ]}
+                  onPress={() => mostrarProceso(procesoSeleccionado)}
+                  disabled={isSpeaking}
+                >
+                  <Ionicons
+                    name={isSpeaking ? "volume-high" : "volume-high-outline"}
+                    size={20}
+                    color="#fff"
+                  />
+                  <Text style={styles.textoBotonLeer}>
+                    {isSpeaking ? "Reproduciendo..." : "Leer nuevamente"}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.botonLimpiarNuevo}
+                  onPress={limpiarPantalla}
+                >
+                  <Ionicons name="refresh-outline" size={20} color="#64748B" />
+                  <Text style={styles.textoBotonLimpiar}>Nueva consulta</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </ScrollView>
@@ -1332,14 +986,14 @@ const AsistenteVoz: React.FC = () => {
             <View style={styles.modalContent}>
               <Text style={styles.modalTitulo}>Ingresa tu comando</Text>
               <Text style={styles.modalSubtitulo}>
-                Ejemplo: "alambre número 10" o simplemente "12"
+                Ejemplo: "proceso OCTAVIN" o simplemente "trefiladora"
               </Text>
 
               <TextInput
                 style={styles.textInput}
                 value={manualText}
                 onChangeText={setManualText}
-                placeholder='Escribe "alambre número 10"'
+                placeholder='Escribe "proceso OCTAVIN"'
                 autoFocus={true}
               />
 
@@ -1443,7 +1097,7 @@ const AsistenteVoz: React.FC = () => {
           </View>
         </Modal>
 
-        {/* Modal de lista de alambres */}
+        {/* Modal de lista de procesos */}
         <Modal
           visible={showListModal}
           transparent={true}
@@ -1453,7 +1107,7 @@ const AsistenteVoz: React.FC = () => {
           <View style={styles.modalContainer}>
             <View style={[styles.modalContent, styles.modalLista]}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitulo}>📋 Seleccionar Alambre</Text>
+                <Text style={styles.modalTitulo}>📋 Seleccionar Proceso</Text>
                 <TouchableOpacity
                   style={styles.botonCerrarModal}
                   onPress={() => setShowListModal(false)}
@@ -1463,28 +1117,28 @@ const AsistenteVoz: React.FC = () => {
               </View>
 
               <Text style={styles.modalSubtitulo}>
-                Elige el número de alambre que necesitas:
+                Elige el nombre de proceso que necesitas:
               </Text>
 
-              <View style={styles.listaAlambres}>
-                {alambres.map((alambre) => (
+              <View style={styles.listaProcesos}>
+                {procesos.map((proceso) => (
                   <TouchableOpacity
-                    key={alambre.numero}
-                    style={styles.itemAlambre}
-                    onPress={() => seleccionarAlambreDeModal(alambre.numero)}
+                    key={proceso.titulo}
+                    style={styles.itemProceso}
+                    onPress={() => seleccionarProcesoDeModal(proceso.titulo)}
                   >
                     <View style={styles.numeroCirculo}>
-                      <Text style={styles.numeroTexto}>{alambre.numero}</Text>
+                      <Text style={styles.numeroTexto}>{proceso.titulo}</Text>
                     </View>
-                    <View style={styles.infoAlambre}>
-                      <Text style={styles.nombreAlambre}>
-                        Alambre {alambre.numero}
+                    <View style={styles.infoProceso}>
+                      <Text style={styles.nombreProceso}>
+                        Proceso: {proceso.titulo}
                       </Text>
-                      <Text style={styles.aplicacionAlambre}>
-                        {alambre.aplicacion}
+                      <Text style={styles.aplicacionProceso}>
+                        {proceso.descripcion}
                       </Text>
-                      <Text style={styles.diametroAlambre}>
-                        {alambre.diametro} • {alambre.amperaje}
+                      <Text style={styles.imagenesProceso}>
+                        Imágenes: {proceso.imagenes.length}
                       </Text>
                     </View>
                     <Ionicons
@@ -1553,7 +1207,7 @@ const AsistenteVoz: React.FC = () => {
                     console.log("🔊 Probando voz con configuración:", config);
 
                     hablar(
-                      `Hola, soy el asistente de voz de MERCAPLAS a velocidad ${voiceSpeed}. Esta es una prueba de mi configuración para ayudarte con información de alambres en nuestra fábrica.`
+                      `Hola, soy el asistente de voz de MERCAPLAS a velocidad ${voiceSpeed}. Esta es una prueba de mi configuración para ayudarte con información de procesos en nuestra fábrica.`
                     );
                   }}
                 >
@@ -1623,12 +1277,127 @@ const AsistenteVoz: React.FC = () => {
                   }}
                 >
                   <Ionicons name="list-outline" size={24} color="#3B82F6" />
-                  <Text style={styles.menuItemText}>Lista de Alambres</Text>
+                  <Text style={styles.menuItemText}>Lista de Procesos</Text>
+                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowOptionsMenu(false);
+                    // TODO: Implementar funcionalidad de agregar proceso
+                    console.log("Agregar proceso - funcionalidad pendiente");
+                  }}
+                >
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={24}
+                    color="#10B981"
+                  />
+                  <Text style={styles.menuItemText}>Agregar Proceso</Text>
                   <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
                 </TouchableOpacity>
               </View>
             </View>
           </TouchableOpacity>
+        </Modal>
+
+        {/* Botón flotante de limpiar cuando hay contenido */}
+        {(procesoSeleccionado || error || transcripcion) && (
+          <TouchableOpacity
+            style={styles.botonFlotanteLimpiar}
+            onPress={limpiarPantalla}
+          >
+            <Ionicons name="close" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
+
+        {/* Modal visor de imágenes */}
+        <Modal
+          visible={imagenAmpliada !== null}
+          transparent={false}
+          animationType="fade"
+          onRequestClose={cerrarVisorImagenes}
+          statusBarTranslucent={true}
+        >
+          <StatusBar
+            barStyle="light-content"
+            backgroundColor="#000000"
+            translucent={true}
+          />
+          <View style={styles.visorImagenContainer}>
+            <TouchableOpacity
+              style={styles.visorOverlay}
+              activeOpacity={1}
+              onPress={cerrarVisorImagenes}
+            >
+              <View style={styles.visorContent}>
+                {/* Botón cerrar */}
+                <TouchableOpacity
+                  style={styles.botonCerrarVisor}
+                  onPress={cerrarVisorImagenes}
+                >
+                  <Ionicons name="close" size={28} color="#FFFFFF" />
+                </TouchableOpacity>
+
+                {/* Contador de imágenes */}
+                {imagenAmpliada && imagenAmpliada.imagenes.length > 1 && (
+                  <View style={styles.contadorImagenes}>
+                    <Text style={styles.textoContador}>
+                      {imagenAmpliada.indiceActual + 1} de{" "}
+                      {imagenAmpliada.imagenes.length}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Imagen ampliada */}
+                {imagenAmpliada && (
+                  <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={(e) => e.stopPropagation()}
+                    style={styles.imagenAmpliada}
+                  >
+                    <Image
+                      source={
+                        getLocalImageSource(
+                          imagenAmpliada.imagenes[imagenAmpliada.indiceActual]
+                        ) || {
+                          uri: imagenAmpliada.imagenes[
+                            imagenAmpliada.indiceActual
+                          ],
+                        }
+                      }
+                      style={styles.imagenCompleta}
+                      resizeMode="contain"
+                    />
+                  </TouchableOpacity>
+                )}
+
+                {/* Navegación entre imágenes */}
+                {imagenAmpliada && imagenAmpliada.imagenes.length > 1 && (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.botonNavegacion, styles.botonAnterior]}
+                      onPress={() => navegarImagen("anterior")}
+                    >
+                      <Ionicons name="chevron-back" size={32} color="#FFFFFF" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.botonNavegacion, styles.botonSiguiente]}
+                      onPress={() => navegarImagen("siguiente")}
+                    >
+                      <Ionicons
+                        name="chevron-forward"
+                        size={32}
+                        color="#FFFFFF"
+                      />
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
         </Modal>
       </SafeAreaView>
     </>
@@ -1871,10 +1640,10 @@ const styles = StyleSheet.create({
   },
   resultadoContainer: {
     backgroundColor: "#FFFFFF",
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 24,
-    marginHorizontal: 8,
+    padding: 12,
+    borderRadius: 16,
+    marginBottom: 20,
+    marginHorizontal: 4,
     borderWidth: 0,
     borderColor: "transparent",
     shadowColor: "#64748B",
@@ -1884,16 +1653,16 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   resultadoTitulo: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "800",
     color: "#1A365D",
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 16,
     letterSpacing: -0.3,
   },
   datosContainer: {
-    gap: 12,
-    marginBottom: 24,
+    gap: 10,
+    marginBottom: 16,
   },
   datoItem: {
     flexDirection: "row",
@@ -2012,18 +1781,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 4,
+    flexDirection: "column",
+    alignItems: "stretch",
   },
-  numeroDestacado: {
-    fontSize: 28,
-    fontWeight: "900",
+  tituloContainer: {
+    gap: 8,
+  },
+  tituloDestacado: {
+    fontSize: 18,
+    fontWeight: "700",
     color: "#1D4ED8",
-    letterSpacing: -0.5,
-  },
-  valorDestacado: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#1E40AF",
     letterSpacing: -0.3,
+    lineHeight: 24,
+    textAlign: "left",
   },
   seccionTitulo: {
     fontSize: 16,
@@ -2122,8 +1892,46 @@ const styles = StyleSheet.create({
     backgroundColor: "#9CA3AF",
     shadowOpacity: 0.1,
   },
-  botonLimpiar: {
-    padding: 8,
+  botonLimpiarNuevo: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F8FAFC",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 8,
+    borderWidth: 2,
+    borderColor: "#E2E8F0",
+    shadowColor: "#64748B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  textoBotonLimpiar: {
+    color: "#64748B",
+    fontSize: 16,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+  },
+  botonFlotanteLimpiar: {
+    position: "absolute",
+    bottom: 30,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#EF4444",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#EF4444",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
   },
   modalInstrucciones: {
     padding: 20,
@@ -2160,11 +1968,11 @@ const styles = StyleSheet.create({
   modalLista: {
     padding: 20,
   },
-  listaAlambres: {
+  listaProcesos: {
     gap: 12,
     marginBottom: 24,
   },
-  itemAlambre: {
+  itemProceso: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
@@ -2186,21 +1994,21 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#FFFFFF",
   },
-  infoAlambre: {
+  infoProceso: {
     flex: 1,
     marginLeft: 16,
   },
-  nombreAlambre: {
+  nombreProceso: {
     fontSize: 16,
     fontWeight: "600",
     color: "#374151",
   },
-  aplicacionAlambre: {
+  aplicacionProceso: {
     fontSize: 14,
     color: "#6B7280",
     fontWeight: "500",
   },
-  diametroAlambre: {
+  imagenesProceso: {
     fontSize: 14,
     color: "#6B7280",
     fontWeight: "500",
@@ -2370,6 +2178,137 @@ const styles = StyleSheet.create({
   },
   botonMenu: {
     padding: 8,
+  },
+  imagenesContainer: {
+    flexDirection: "column",
+    gap: 16,
+    marginBottom: 20,
+  },
+  imagenWrapper: {
+    width: "100%",
+    height: 250,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: "hidden",
+  },
+  imagenProceso: {
+    width: "100%",
+    height: 210,
+  },
+  imagenFooter: {
+    height: 40,
+    backgroundColor: "#374151",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+  },
+  imagenNumero: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    flex: 1,
+  },
+  visorImagenContainer: {
+    flex: 1,
+    backgroundColor: "#000000",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  visorOverlay: {
+    flex: 1,
+    width: "100%",
+    backgroundColor: "#000000",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  visorContent: {
+    flex: 1,
+    width: "100%",
+    backgroundColor: "#000000",
+    position: "relative",
+  },
+  botonCerrarVisor: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 60 : 40,
+    right: 20,
+    zIndex: 10,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  contadorImagenes: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 60 : 40,
+    left: 20,
+    zIndex: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  textoContador: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  imagenAmpliada: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000000",
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  imagenCompleta: {
+    width: "100%",
+    height: "100%",
+  },
+  botonNavegacion: {
+    position: "absolute",
+    top: "50%",
+    marginTop: -25,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  botonAnterior: {
+    left: 20,
+  },
+  botonSiguiente: {
+    right: 20,
+  },
+  botonesAccion: {
+    gap: 12,
+    marginTop: 16,
+  },
+  descripcionItem: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 8,
+  },
+  descripcionTexto: {
+    fontSize: 16,
+    color: "#374151",
+    fontWeight: "500",
+    lineHeight: 24,
+    textAlign: "left",
   },
 });
 

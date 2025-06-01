@@ -24,8 +24,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "Permite que $(PRODUCT_NAME) use el reconocimiento de voz.",
-        "NSMicrophoneUsageDescription": "Permite que $(PRODUCT_NAME) use el micrófono para reconocimiento de voz."
+        "NSSpeechRecognitionUsageDescription": "Esta aplicación necesita acceso al reconocimiento de voz para ayudar a los trabajadores con información de alambres.",
+        "NSMicrophoneUsageDescription": "Esta aplicación necesita acceso al micrófono para reconocimiento de voz y asistencia en fabricación de alambres."
       }
     },
     "android": {
@@ -43,6 +43,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "663243a3-851a-4be5-9dd7-03a41bac6379"
+      }
     }
   }
 }
