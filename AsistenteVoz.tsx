@@ -12,6 +12,9 @@ import {
   StatusBar,
   Platform,
   Image,
+  Dimensions,
+  FlatList,
+  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Speech from "expo-speech";
@@ -19,11 +22,30 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from "expo-speech-recognition";
+import {
+  sincronizarProcesos,
+  Proceso as ProcesoSincronizado,
+  cargarProcesosCache,
+} from "./syncService";
+import { OptionsMenu } from "./src/components/OptionsMenu";
+import { LoginModal } from "./src/components/LoginModal";
+import { AgregarProcesoModal } from "./src/components/AgregarProcesoModal";
+import { supabase } from "./supabaseClient";
 
 interface Proceso {
   titulo: string;
   descripcion: string;
   imagenes: string[];
+}
+
+interface NuevoProcesoData {
+  titulo: string;
+  descripcion: string;
+  imagenes: {
+    uri: string;
+    name: string;
+    size: number;
+  }[];
 }
 
 const AsistenteVoz: React.FC = () => {
@@ -45,6 +67,8 @@ const AsistenteVoz: React.FC = () => {
     imagenes: string[];
     indiceActual: number;
   } | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
+  const [showAgregarProceso, setShowAgregarProceso] = useState(false);
 
   // Solo configuración de velocidad de voz - idioma fijo es-MX
   const [voiceSpeed, setVoiceSpeed] = useState(0.75); // Velocidad por defecto
@@ -201,31 +225,52 @@ const AsistenteVoz: React.FC = () => {
 
   const cargarProcesos = async () => {
     try {
-      console.log("📂 Cargando datos de procesos...");
-      const datosProcesos = require("./assets/procesos.json");
-      setProcesos(datosProcesos);
-      console.log(
-        "✅ Datos de procesos cargados:",
-        datosProcesos.length,
-        "procesos"
-      );
-    } catch (err) {
-      console.error("❌ Error al cargar procesos:", err);
-      console.log("🔄 Usando datos de respaldo...");
+      console.log("📂 Cargando procesos...");
 
-      const datosRespaldo: Proceso[] = [
-        {
-          titulo: 'Proceso de trefiladora principal "OCTAVIN"',
-          descripcion:
-            "1-Se empieza colocando el octavín 3.5 mm en la parte tracera de la máquina de trefilado.\n2-se procede a limpiar la maquina con desgrasante para remover las suciedad y óxidos\n3- se enhebra la maquina dando vueltas por las ruedas y al final de las vueltas donde sale el cobre se le coloca el dado 1.000\n4- se coloca la bobina H6  en los rodamientos para su debido enrollado según los pies que indica el lote.\n5- se verifica el recocido y vapor.\nNota. el mismo proceso para el diámetro 1.21",
-          imagenes: [
-            "/assets/images/trefiladora-octavin-1.jpg",
-            "/assets/images/trefiladora-octavin-2.jpg",
-          ],
-        },
-      ];
-      setProcesos(datosRespaldo);
-      console.log("✅ Datos de respaldo cargados");
+      // 1. Cargar procesos desde cache local
+      const procesosLocales = await cargarProcesosCache();
+
+      // Convertir ProcesoSincronizado a Proceso (formato compatible)
+      const procesosCompatibles: Proceso[] = procesosLocales.map((proceso) => ({
+        titulo: proceso.titulo,
+        descripcion: proceso.descripcion,
+        imagenes: proceso.imagenes.map((img) => img.data), // Solo el nombre/data
+      }));
+
+      setProcesos(procesosCompatibles);
+      console.log(`✅ ${procesosCompatibles.length} procesos cargados`);
+
+      // 2. Intentar sincronizar en segundo plano
+      const { procesos: procesosSincronizados, nuevos } =
+        await sincronizarProcesos();
+      if (nuevos > 0) {
+        console.log(`🔄 ${nuevos} procesos nuevos sincronizados`);
+        const procesosSincronizadosCompatibles = procesosSincronizados.map(
+          (proceso) => ({
+            titulo: proceso.titulo,
+            descripcion: proceso.descripcion,
+            imagenes: proceso.imagenes.map((img) => img.data),
+          })
+        );
+        setProcesos(procesosSincronizadosCompatibles);
+      }
+    } catch (error) {
+      console.error("❌ Error cargando procesos:", error);
+      setError("❌ Error cargando datos de procesos");
+
+      // Fallback: cargar datos del cache
+      try {
+        const procesosCache = await cargarProcesosCache();
+        const procesosCompatibles = procesosCache.map((proceso) => ({
+          titulo: proceso.titulo,
+          descripcion: proceso.descripcion,
+          imagenes: proceso.imagenes.map((img) => img.data),
+        }));
+        setProcesos(procesosCompatibles);
+        console.log("🔄 Fallback a datos del cache exitoso");
+      } catch (fallbackError) {
+        console.error("❌ Error en fallback:", fallbackError);
+      }
     }
   };
 
@@ -687,16 +732,27 @@ const AsistenteVoz: React.FC = () => {
     }
   };
 
-  const getLocalImageSource = (imageName: string) => {
-    // Mapeo de nombres de imágenes a archivos locales
-    const imageMap: { [key: string]: any } = {
-      "trefiladora-octavin-1": require("./assets/images/trefiladora-octavin-1.jpg"),
-      "trefiladora-octavin-2": require("./assets/images/trefiladora-octavin-2.jpg"),
-      "trefiladora-octavin-3": require("./assets/images/trefiladora-octavin-3.jpg"),
-      "trefiladora-octavin-4": require("./assets/images/trefiladora-octavin-4.jpg"),
-    };
+  const getLocalImageSource = (imageName: string, isLocal: boolean = true) => {
+    // Si es imagen local (assets), usar require
+    if (isLocal) {
+      // Mapeo de nombres de imágenes locales a archivos
+      const imageMap: { [key: string]: any } = {
+        "trefiladora-octavin-1": require("./assets/images/trefiladora-octavin-1.jpg"),
+        "trefiladora-octavin-2": require("./assets/images/trefiladora-octavin-2.jpg"),
+        "trefiladora-octavin-3": require("./assets/images/trefiladora-octavin-3.jpg"),
+        "trefiladora-octavin-4": require("./assets/images/trefiladora-octavin-4.jpg"),
+      };
 
-    return imageMap[imageName] || null;
+      return imageMap[imageName] || null;
+    } else {
+      // Si es imagen remota (Base64), usar directamente
+      if (imageName.startsWith("data:image/")) {
+        return { uri: imageName };
+      } else {
+        // Fallback para URLs externas
+        return { uri: imageName };
+      }
+    }
   };
 
   const abrirVisorImagenes = (imagenes: string[], indice: number) => {
@@ -720,6 +776,98 @@ const AsistenteVoz: React.FC = () => {
     }
 
     setImagenAmpliada({ imagenes, indiceActual: nuevoIndice });
+  };
+
+  const handleLoginSuccess = (user: any) => {
+    console.log("✅ Login exitoso:", user);
+    setShowAgregarProceso(true);
+  };
+
+  const handleAgregarProceso = async (datos: NuevoProcesoData) => {
+    try {
+      // 1. Obtener el usuario actual
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error("No hay usuario autenticado");
+      }
+
+      // 2. Convertir imágenes a Base64
+      const imagenesBase64 = await Promise.all(
+        datos.imagenes.map(async (imagen) => {
+          const response = await fetch(imagen.uri);
+          const blob = await response.blob();
+          return new Promise<{
+            nombre: string;
+            data: string;
+            isLocal: boolean;
+            size: number;
+          }>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              resolve({
+                nombre: imagen.name,
+                data: reader.result as string,
+                isLocal: false,
+                size: imagen.size,
+              });
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        })
+      );
+
+      // 3. Crear objeto proceso
+      const nuevoProceso = {
+        titulo: datos.titulo,
+        descripcion: datos.descripcion,
+        imagenes: imagenesBase64,
+        created_by: user.id,
+      };
+
+      // 4. Guardar en Supabase
+      const { data, error } = await supabase
+        .from("procesos")
+        .insert(nuevoProceso)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // 5. Forzar sincronización inmediata
+      console.log("🔄 Forzando sincronización después de agregar proceso...");
+      const resultado = await sincronizarProcesos();
+
+      if (resultado.error) {
+        console.warn("⚠️ Error en sincronización:", resultado.error);
+        Alert.alert(
+          "⚠️ Advertencia",
+          "El proceso se guardó pero hubo un error al sincronizar. Los cambios se verán reflejados en la próxima sincronización exitosa."
+        );
+      } else {
+        console.log(
+          `✅ Sincronización exitosa: ${resultado.nuevos} procesos nuevos`
+        );
+        Alert.alert(
+          "✅ Éxito",
+          "Proceso agregado y sincronizado correctamente"
+        );
+      }
+
+      // 6. Actualizar UI y cerrar modal
+      setShowAgregarProceso(false);
+
+      // 7. Recargar procesos en la UI
+      await cargarProcesos();
+    } catch (error: any) {
+      Alert.alert(
+        "❌ Error",
+        "No se pudo agregar el proceso: " + error.message
+      );
+    }
   };
 
   return (
@@ -1120,35 +1268,58 @@ const AsistenteVoz: React.FC = () => {
                 Elige el nombre de proceso que necesitas:
               </Text>
 
-              <View style={styles.listaProcesos}>
-                {procesos.map((proceso) => (
-                  <TouchableOpacity
-                    key={proceso.titulo}
-                    style={styles.itemProceso}
-                    onPress={() => seleccionarProcesoDeModal(proceso.titulo)}
-                  >
-                    <View style={styles.numeroCirculo}>
-                      <Text style={styles.numeroTexto}>{proceso.titulo}</Text>
-                    </View>
-                    <View style={styles.infoProceso}>
-                      <Text style={styles.nombreProceso}>
-                        Proceso: {proceso.titulo}
-                      </Text>
-                      <Text style={styles.aplicacionProceso}>
-                        {proceso.descripcion}
-                      </Text>
-                      <Text style={styles.imagenesProceso}>
-                        Imágenes: {proceso.imagenes.length}
-                      </Text>
-                    </View>
+              {procesos.length === 0 ? (
+                <View style={styles.sinProcesosContainer}>
+                  <View style={styles.sinProcesosContent}>
                     <Ionicons
-                      name="chevron-forward"
-                      size={20}
+                      name="document-text-outline"
+                      size={48}
                       color="#94A3B8"
                     />
-                  </TouchableOpacity>
-                ))}
-              </View>
+                    <Text style={styles.sinProcesosTitulo}>
+                      No hay procesos disponibles
+                    </Text>
+                    <Text style={styles.sinProcesosDescripcion}>
+                      No se encontraron procesos en la base de datos. Puedes
+                      agregar nuevos procesos usando la opción "Agregar Proceso"
+                      en el menú.
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <FlatList
+                  data={procesos}
+                  keyExtractor={(item) => item.titulo}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.itemProceso}
+                      onPress={() => seleccionarProcesoDeModal(item.titulo)}
+                    >
+                      <View style={styles.numeroCirculo}>
+                        <Text style={styles.numeroTexto}>{item.titulo}</Text>
+                      </View>
+                      <View style={styles.infoProceso}>
+                        <Text style={styles.nombreProceso}>
+                          Proceso: {item.titulo}
+                        </Text>
+                        <Text style={styles.aplicacionProceso}>
+                          {item.descripcion}
+                        </Text>
+                        <Text style={styles.imagenesProceso}>
+                          Imágenes: {item.imagenes.length}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color="#94A3B8"
+                      />
+                    </TouchableOpacity>
+                  )}
+                  contentContainerStyle={styles.listaProcesos}
+                  showsVerticalScrollIndicator={true}
+                />
+              )}
             </View>
           </View>
         </Modal>
@@ -1219,88 +1390,18 @@ const AsistenteVoz: React.FC = () => {
           </View>
         </Modal>
 
-        {/* Modal de menú de opciones */}
-        <Modal
+        {/* Replace the old menu modal with the new OptionsMenu component */}
+        <OptionsMenu
           visible={showOptionsMenu}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setShowOptionsMenu(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setShowOptionsMenu(false)}
-          >
-            <View style={styles.menuContainer}>
-              <View style={styles.menuContent}>
-                <View style={styles.menuHeader}>
-                  <Text style={styles.menuTitulo}>Opciones</Text>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowOptionsMenu(false);
-                    setShowInstructions(true);
-                  }}
-                >
-                  <Ionicons
-                    name="help-circle-outline"
-                    size={24}
-                    color="#3B82F6"
-                  />
-                  <Text style={styles.menuItemText}>Guía de Uso</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowOptionsMenu(false);
-                    setShowVoiceConfig(true);
-                  }}
-                >
-                  <Ionicons
-                    name="volume-high-outline"
-                    size={24}
-                    color="#3B82F6"
-                  />
-                  <Text style={styles.menuItemText}>Configuración de Voz</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowOptionsMenu(false);
-                    setShowListModal(true);
-                  }}
-                >
-                  <Ionicons name="list-outline" size={24} color="#3B82F6" />
-                  <Text style={styles.menuItemText}>Lista de Procesos</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowOptionsMenu(false);
-                    // TODO: Implementar funcionalidad de agregar proceso
-                    console.log("Agregar proceso - funcionalidad pendiente");
-                  }}
-                >
-                  <Ionicons
-                    name="add-circle-outline"
-                    size={24}
-                    color="#10B981"
-                  />
-                  <Text style={styles.menuItemText}>Agregar Proceso</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </Modal>
+          onClose={() => setShowOptionsMenu(false)}
+          onShowInstructions={() => setShowInstructions(true)}
+          onShowVoiceConfig={() => setShowVoiceConfig(true)}
+          onShowListModal={() => setShowListModal(true)}
+          onShowAgregarProceso={() => {
+            setShowOptionsMenu(false);
+            setShowLogin(true);
+          }}
+        />
 
         {/* Botón flotante de limpiar cuando hay contenido */}
         {(procesoSeleccionado || error || transcripcion) && (
@@ -1400,6 +1501,18 @@ const AsistenteVoz: React.FC = () => {
           </View>
         </Modal>
       </SafeAreaView>
+
+      <LoginModal
+        visible={showLogin}
+        onClose={() => setShowLogin(false)}
+        onSuccess={handleLoginSuccess}
+      />
+
+      <AgregarProcesoModal
+        visible={showAgregarProceso}
+        onClose={() => setShowAgregarProceso(false)}
+        onSubmit={handleAgregarProceso}
+      />
     </>
   );
 };
@@ -1967,10 +2080,11 @@ const styles = StyleSheet.create({
   },
   modalLista: {
     padding: 20,
+    maxHeight: "80%", // Limitar altura máxima
   },
   listaProcesos: {
     gap: 12,
-    marginBottom: 24,
+    paddingBottom: 24,
   },
   itemProceso: {
     flexDirection: "row",
@@ -2130,90 +2244,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.3,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  menuContainer: {
-    backgroundColor: "#FFFFFF",
-    padding: 20,
-    borderRadius: 15,
-    width: "90%",
-    maxWidth: 400,
-  },
-  menuContent: {
-    gap: 16,
-  },
-  menuHeader: {
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  menuTitulo: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  menuItemText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#374151",
-    marginLeft: 12,
-    flex: 1,
-  },
-  botonMenu: {
-    padding: 8,
-  },
-  imagenesContainer: {
-    flexDirection: "column",
-    gap: 16,
-    marginBottom: 20,
-  },
-  imagenWrapper: {
-    width: "100%",
-    height: 250,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    overflow: "hidden",
-  },
-  imagenProceso: {
-    width: "100%",
-    height: 210,
-  },
-  imagenFooter: {
-    height: 40,
-    backgroundColor: "#374151",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-  },
-  imagenNumero: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
-    flex: 1,
-  },
   visorImagenContainer: {
     flex: 1,
     backgroundColor: "#000000",
@@ -2309,6 +2339,72 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     lineHeight: 24,
     textAlign: "left",
+  },
+  imagenesContainer: {
+    flexDirection: "column",
+    gap: 16,
+    marginBottom: 20,
+  },
+  imagenWrapper: {
+    width: "100%",
+    height: 250,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: "hidden",
+  },
+  imagenProceso: {
+    width: "100%",
+    height: 210,
+  },
+  imagenFooter: {
+    height: 40,
+    backgroundColor: "#374151",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+  },
+  imagenNumero: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    flex: 1,
+  },
+  botonMenu: {
+    padding: 8,
+  },
+  sinProcesosContainer: {
+    minHeight: 300,
+    width: "100%",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 16,
+    marginTop: 16,
+    padding: 20,
+  },
+  sinProcesosContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  sinProcesosTitulo: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  sinProcesosDescripcion: {
+    fontSize: 16,
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 24,
   },
 });
 
