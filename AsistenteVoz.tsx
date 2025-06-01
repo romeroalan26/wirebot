@@ -15,6 +15,7 @@ import {
   Dimensions,
   FlatList,
   Pressable,
+  BackHandler,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Speech from "expo-speech";
@@ -166,6 +167,15 @@ const AsistenteVoz: React.FC = () => {
     console.log("🚀 Iniciando AsistenteVoz...");
     cargarProcesos();
     verificarPermisos();
+
+    // Configurar un intervalo para actualizar los procesos cada 30 segundos
+    const intervaloActualizacion = setInterval(() => {
+      console.log("🔄 Actualización automática de procesos...");
+      cargarProcesos(true);
+    }, 30000);
+
+    // Limpiar el intervalo cuando el componente se desmonte
+    return () => clearInterval(intervaloActualizacion);
   }, []);
 
   // Verificar sesión actual al iniciar
@@ -259,7 +269,7 @@ const AsistenteVoz: React.FC = () => {
     }
   };
 
-  const cargarProcesos = async () => {
+  const cargarProcesos = async (forceRefresh = false) => {
     try {
       console.log("📂 Cargando procesos...");
 
@@ -271,26 +281,28 @@ const AsistenteVoz: React.FC = () => {
         id: proceso.id,
         titulo: proceso.titulo,
         descripcion: proceso.descripcion,
-        imagenes: proceso.imagenes.map((img) => img.data), // Solo el nombre/data
+        imagenes: proceso.imagenes.map((img) => img.data),
       }));
 
       setProcesos(procesosCompatibles);
       console.log(`✅ ${procesosCompatibles.length} procesos cargados`);
 
-      // 2. Intentar sincronizar en segundo plano
-      const { procesos: procesosSincronizados, nuevos } =
-        await sincronizarProcesos();
-      if (nuevos > 0) {
-        console.log(`🔄 ${nuevos} procesos nuevos sincronizados`);
-        const procesosSincronizadosCompatibles = procesosSincronizados.map(
-          (proceso) => ({
-            id: proceso.id,
-            titulo: proceso.titulo,
-            descripcion: proceso.descripcion,
-            imagenes: proceso.imagenes.map((img) => img.data),
-          })
-        );
-        setProcesos(procesosSincronizadosCompatibles);
+      // 2. Intentar sincronizar en segundo plano si es necesario
+      if (forceRefresh) {
+        const { procesos: procesosSincronizados, nuevos } =
+          await sincronizarProcesos();
+        if (nuevos > 0) {
+          console.log(`🔄 ${nuevos} procesos nuevos sincronizados`);
+          const procesosSincronizadosCompatibles = procesosSincronizados.map(
+            (proceso) => ({
+              id: proceso.id,
+              titulo: proceso.titulo,
+              descripcion: proceso.descripcion,
+              imagenes: proceso.imagenes.map((img) => img.data),
+            })
+          );
+          setProcesos(procesosSincronizadosCompatibles);
+        }
       }
     } catch (error) {
       console.error("❌ Error cargando procesos:", error);
@@ -359,20 +371,6 @@ const AsistenteVoz: React.FC = () => {
         buscar: ["recocido"],
       },
 
-      // CONTROL DE CALIDAD
-      {
-        palabras: [
-          "calidad",
-          "control",
-          "medicion",
-          "medición",
-          "prueba",
-          "ensayo",
-          "awg",
-        ],
-        buscar: ["control", "calidad"],
-      },
-
       // ENROLLADO
       {
         palabras: ["enrollado", "enrollar", "bobina", "carrete", "h6"],
@@ -402,9 +400,9 @@ const AsistenteVoz: React.FC = () => {
 
     // Patrones de comandos generales
     const patronesGenerales = [
-      /(?:proceso|cómo|como)\s*(?:de|del|de\s*la)?\s*(?:trefiladora|trefilar|octavin|octavín|galvanizado|recocido|calidad|enrollado)/gi,
-      /(?:qué|que)\s*(?:hago|proceso|procedimiento)\s*(?:para|de|del)?\s*(?:trefilar|galvanizar|recocer|controlar|enrollar)/gi,
-      /(?:procedimiento|método|pasos)\s*(?:para|de|del)?\s*(?:trefiladora|galvanizado|recocido|calidad|enrollado)/gi,
+      /(?:proceso|cómo|como)\s*(?:de|del|de\s*la)?\s*(?:trefiladora|trefilar|octavin|octavín|galvanizado|recocido|enrollado)/gi,
+      /(?:qué|que)\s*(?:hago|proceso|procedimiento)\s*(?:para|de|del)?\s*(?:trefilar|galvanizar|recocer|enrollar)/gi,
+      /(?:procedimiento|método|pasos)\s*(?:para|de|del)?\s*(?:trefiladora|galvanizado|recocido|enrollado)/gi,
     ];
 
     for (const patron of patronesGenerales) {
@@ -489,7 +487,6 @@ const AsistenteVoz: React.FC = () => {
       'Intenta decir "proceso OCTAVIN" o "cómo hacer trefiladora"',
       'Puedes preguntar "proceso de galvanizado" o "cómo galvanizar alambre"',
       'También puedes decir "proceso de recocido" o "cómo recocer alambre"',
-      'Pregunta "control de calidad" o "cómo controlar la calidad"',
       'Di "proceso de enrollado" o "cómo enrollar en bobinas"',
       'Pregunta natural como "qué proceso necesito para galvanizar"',
     ];
@@ -509,14 +506,6 @@ const AsistenteVoz: React.FC = () => {
       texto.includes("temple")
     ) {
       return 'Detecté que preguntas sobre recocido. Intenta decir "proceso de recocido" o "recocer alambre".';
-    }
-
-    if (
-      texto.includes("calidad") ||
-      texto.includes("control") ||
-      texto.includes("medicion")
-    ) {
-      return 'Detecté que preguntas sobre control. Intenta decir "control de calidad" o "proceso de control".';
     }
 
     if (
@@ -920,17 +909,113 @@ const AsistenteVoz: React.FC = () => {
       // Limpiar el proceso seleccionado si es el que se eliminó
       setProcesoSeleccionado(null);
 
-      // Recargar la lista de procesos
+      // Forzar una sincronización inmediata para actualizar el caché
+      console.log("🔄 Forzando sincronización después de eliminar proceso...");
+      const resultado = await sincronizarProcesos();
+
+      if (resultado.error) {
+        console.warn("⚠️ Error en sincronización:", resultado.error);
+        Alert.alert(
+          "⚠️ Advertencia",
+          "El proceso se eliminó pero hubo un error al sincronizar. Los cambios se verán reflejados en la próxima sincronización exitosa."
+        );
+      } else {
+        console.log(`✅ Sincronización exitosa después de eliminar proceso`);
+      }
+
+      // Actualizar la lista de procesos en la UI
       await cargarProcesos();
 
       // Limpiar cualquier error o transcripción
       setError("");
       setTranscripcion("");
+
+      // Cerrar el modal de eliminar proceso
+      setShowEliminarProceso(false);
     } catch (error) {
       console.error("Error al actualizar después de eliminar:", error);
       setError("Error al actualizar la lista de procesos");
     }
   };
+
+  // Agregar función para manejar el botón de atrás
+  const handleBackButton = () => {
+    // Cerrar modales en orden de prioridad
+    if (showInstructions) {
+      setShowInstructions(false);
+      setShowOptionsMenu(true);
+      return true;
+    }
+    if (showListModal) {
+      setShowListModal(false);
+      setShowOptionsMenu(true);
+      return true;
+    }
+    if (showVoiceConfig) {
+      setShowVoiceConfig(false);
+      setShowOptionsMenu(true);
+      return true;
+    }
+    if (showManualInput) {
+      setShowManualInput(false);
+      return true;
+    }
+    if (showAgregarProceso) {
+      setShowAgregarProceso(false);
+      setShowAdminProcesosModal(true);
+      return true;
+    }
+    if (showEliminarProceso) {
+      setShowEliminarProceso(false);
+      setShowAdminProcesosModal(true);
+      return true;
+    }
+    if (showAdminProcesosModal) {
+      setShowAdminProcesosModal(false);
+      setShowOptionsMenu(true);
+      return true;
+    }
+    if (showLogin) {
+      setShowLogin(false);
+      setShowOptionsMenu(true);
+      return true;
+    }
+    if (showOptionsMenu) {
+      setShowOptionsMenu(false);
+      return true;
+    }
+    if (imagenAmpliada) {
+      cerrarVisorImagenes();
+      return true;
+    }
+    if (procesoSeleccionado) {
+      limpiarPantalla();
+      return true;
+    }
+    return false;
+  };
+
+  // Agregar useEffect para el botón de atrás
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      handleBackButton
+    );
+
+    return () => backHandler.remove();
+  }, [
+    showInstructions,
+    showListModal,
+    showVoiceConfig,
+    showManualInput,
+    showAgregarProceso,
+    showEliminarProceso,
+    showAdminProcesosModal,
+    showLogin,
+    showOptionsMenu,
+    imagenAmpliada,
+    procesoSeleccionado,
+  ]);
 
   return (
     <>
@@ -1208,7 +1293,7 @@ const AsistenteVoz: React.FC = () => {
           visible={showManualInput}
           transparent={true}
           animationType="slide"
-          onRequestClose={() => setShowManualInput(false)}
+          onRequestClose={handleBackButton}
         >
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
@@ -1228,7 +1313,7 @@ const AsistenteVoz: React.FC = () => {
               <View style={styles.modalBotones}>
                 <TouchableOpacity
                   style={[styles.modalBoton, styles.modalBotonCancelar]}
-                  onPress={() => setShowManualInput(false)}
+                  onPress={handleBackButton}
                 >
                   <Text style={styles.textoModalBoton}>Cancelar</Text>
                 </TouchableOpacity>
@@ -1251,17 +1336,15 @@ const AsistenteVoz: React.FC = () => {
           visible={showInstructions}
           transparent={true}
           animationType="slide"
-          onRequestClose={() => setShowInstructions(false)}
+          onRequestClose={handleBackButton}
         >
-          <TouchableOpacity
-            activeOpacity={1}
+          <View
             style={{
               flex: 1,
               backgroundColor: "rgba(0,0,0,0.5)",
               justifyContent: "center",
               alignItems: "center",
             }}
-            onPress={() => setShowInstructions(false)}
           >
             <View
               style={{
@@ -1270,6 +1353,7 @@ const AsistenteVoz: React.FC = () => {
                 padding: 20,
                 width: "90%",
                 maxWidth: 400,
+                maxHeight: "80%",
                 position: "relative",
               }}
             >
@@ -1292,18 +1376,16 @@ const AsistenteVoz: React.FC = () => {
                   elevation: 2,
                   zIndex: 10,
                 }}
-                onPress={() => {
-                  // Cerrar el modal correspondiente y mostrar el menú de opciones principal
-                  setShowInstructions(false); // o setShowVoiceConfig(false), setShowListModal(false) según el modal
-                  setShowOptionsMenu(true);
-                }}
+                onPress={handleBackButton}
               >
                 <Ionicons name="arrow-back" size={24} color="#3B82F6" />
               </TouchableOpacity>
               <Text style={styles.modalTitulo}>📖 Guía de Uso</Text>
+
               <ScrollView
-                style={[styles.instruccionesScroll, { maxHeight: 400 }]}
+                style={[styles.instruccionesScroll]}
                 showsVerticalScrollIndicator={true}
+                contentContainerStyle={{ paddingTop: 40, paddingBottom: 20 }}
               >
                 <Text
                   style={{
@@ -1376,8 +1458,23 @@ const AsistenteVoz: React.FC = () => {
                   dispositivo.
                 </Text>
               </ScrollView>
+
+              {/* Gradiente inferior */}
+              <View
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: 40,
+                  backgroundColor: "rgba(255,255,255,0.9)",
+                  pointerEvents: "none",
+                  borderBottomLeftRadius: 16,
+                  borderBottomRightRadius: 16,
+                }}
+              />
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
 
         {/* Modal de lista de procesos */}
@@ -1385,17 +1482,15 @@ const AsistenteVoz: React.FC = () => {
           visible={showListModal}
           transparent={true}
           animationType="slide"
-          onRequestClose={() => setShowListModal(false)}
+          onRequestClose={handleBackButton}
         >
-          <TouchableOpacity
-            activeOpacity={1}
+          <View
             style={{
               flex: 1,
               backgroundColor: "rgba(0,0,0,0.5)",
               justifyContent: "center",
               alignItems: "center",
             }}
-            onPress={() => setShowListModal(false)}
           >
             <View
               style={{
@@ -1404,6 +1499,7 @@ const AsistenteVoz: React.FC = () => {
                 padding: 20,
                 width: "90%",
                 maxWidth: 400,
+                maxHeight: "80%",
                 position: "relative",
               }}
             >
@@ -1426,17 +1522,12 @@ const AsistenteVoz: React.FC = () => {
                   elevation: 2,
                   zIndex: 10,
                 }}
-                onPress={() => {
-                  // Cerrar el modal correspondiente y mostrar el menú de opciones principal
-                  setShowListModal(false);
-                  setShowOptionsMenu(true);
-                }}
+                onPress={handleBackButton}
               >
                 <Ionicons name="arrow-back" size={24} color="#3B82F6" />
               </TouchableOpacity>
-              <Text style={styles.modalTitulo}>📋 Seleccionar Proceso</Text>
-              <Text style={styles.modalSubtitulo}>
-                Elige el nombre de proceso que necesitas:
+              <Text style={[styles.modalTitulo, { marginBottom: 16 }]}>
+                📋 Lista de Procesos
               </Text>
 
               {procesos.length === 0 ? (
@@ -1461,30 +1552,48 @@ const AsistenteVoz: React.FC = () => {
                 <FlatList
                   data={procesos}
                   keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
+                  renderItem={({ item, index }) => (
                     <TouchableOpacity
-                      style={styles.itemProceso}
+                      style={[
+                        styles.itemProceso,
+                        {
+                          backgroundColor:
+                            index % 2 === 0 ? "#F8FAFC" : "#FFFFFF",
+                          borderLeftWidth: 4,
+                          borderLeftColor: "#3B82F6",
+                        },
+                      ]}
                       onPress={() => seleccionarProcesoDeModal(item.titulo)}
                     >
-                      <View style={styles.numeroCirculo}>
-                        <Text style={styles.numeroTexto}>{item.titulo}</Text>
-                      </View>
                       <View style={styles.infoProceso}>
-                        <Text style={styles.nombreProceso}>
-                          Proceso: {item.titulo}
-                        </Text>
-                        <Text style={styles.aplicacionProceso}>
+                        <Text style={styles.nombreProceso}>{item.titulo}</Text>
+                        <Text
+                          style={styles.aplicacionProceso}
+                          numberOfLines={2}
+                        >
                           {item.descripcion}
                         </Text>
-                        <Text style={styles.imagenesProceso}>
-                          Imágenes: {item.imagenes.length}
-                        </Text>
+                        <View style={styles.procesoFooter}>
+                          <View style={styles.imagenesBadge}>
+                            <Ionicons
+                              name="images-outline"
+                              size={16}
+                              color="#3B82F6"
+                            />
+                            <Text style={styles.imagenesTexto}>
+                              {item.imagenes.length}{" "}
+                              {item.imagenes.length === 1
+                                ? "imagen"
+                                : "imágenes"}
+                            </Text>
+                          </View>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={20}
+                            color="#94A3B8"
+                          />
+                        </View>
                       </View>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={20}
-                        color="#94A3B8"
-                      />
                     </TouchableOpacity>
                   )}
                   contentContainerStyle={styles.listaProcesos}
@@ -1492,7 +1601,7 @@ const AsistenteVoz: React.FC = () => {
                 />
               )}
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
 
         {/* Modal de configuración de voz */}
@@ -1500,7 +1609,7 @@ const AsistenteVoz: React.FC = () => {
           visible={showVoiceConfig}
           transparent={true}
           animationType="slide"
-          onRequestClose={() => setShowVoiceConfig(false)}
+          onRequestClose={handleBackButton}
         >
           <TouchableOpacity
             activeOpacity={1}
@@ -1510,7 +1619,7 @@ const AsistenteVoz: React.FC = () => {
               justifyContent: "center",
               alignItems: "center",
             }}
-            onPress={() => setShowVoiceConfig(false)}
+            onPress={handleBackButton}
           >
             <View
               style={{
@@ -1541,11 +1650,7 @@ const AsistenteVoz: React.FC = () => {
                   elevation: 2,
                   zIndex: 10,
                 }}
-                onPress={() => {
-                  // Cerrar el modal correspondiente y mostrar el menú de opciones principal
-                  setShowVoiceConfig(false);
-                  setShowOptionsMenu(true);
-                }}
+                onPress={handleBackButton}
               >
                 <Ionicons name="arrow-back" size={24} color="#3B82F6" />
               </TouchableOpacity>
@@ -1632,7 +1737,7 @@ const AsistenteVoz: React.FC = () => {
           visible={imagenAmpliada !== null}
           transparent={false}
           animationType="fade"
-          onRequestClose={cerrarVisorImagenes}
+          onRequestClose={handleBackButton}
           statusBarTranslucent={true}
         >
           <StatusBar
@@ -1644,13 +1749,13 @@ const AsistenteVoz: React.FC = () => {
             <TouchableOpacity
               style={styles.visorOverlay}
               activeOpacity={1}
-              onPress={cerrarVisorImagenes}
+              onPress={handleBackButton}
             >
               <View style={styles.visorContent}>
                 {/* Botón cerrar */}
                 <TouchableOpacity
                   style={styles.botonCerrarVisor}
-                  onPress={cerrarVisorImagenes}
+                  onPress={handleBackButton}
                 >
                   <Ionicons name="close" size={28} color="#FFFFFF" />
                 </TouchableOpacity>
@@ -1748,7 +1853,7 @@ const AsistenteVoz: React.FC = () => {
         visible={showAdminProcesosModal}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowAdminProcesosModal(false)}
+        onRequestClose={handleBackButton}
       >
         <TouchableOpacity
           activeOpacity={1}
@@ -1758,7 +1863,7 @@ const AsistenteVoz: React.FC = () => {
             justifyContent: "center",
             alignItems: "center",
           }}
-          onPress={() => setShowAdminProcesosModal(false)}
+          onPress={handleBackButton}
         >
           <View
             style={{
@@ -1790,11 +1895,7 @@ const AsistenteVoz: React.FC = () => {
                 elevation: 2,
                 zIndex: 10,
               }}
-              onPress={() => {
-                // Cerrar el modal correspondiente y mostrar el menú de opciones principal
-                setShowAdminProcesosModal(false);
-                setShowOptionsMenu(true);
-              }}
+              onPress={handleBackButton}
             >
               <Ionicons name="arrow-back" size={24} color="#3B82F6" />
             </TouchableOpacity>
@@ -1852,7 +1953,7 @@ const AsistenteVoz: React.FC = () => {
                 width: "100%",
                 alignItems: "center",
               }}
-              onPress={() => setShowAdminProcesosModal(false)}
+              onPress={handleBackButton}
             >
               <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>
                 Cerrar
@@ -2431,49 +2532,55 @@ const styles = StyleSheet.create({
     maxHeight: "80%", // Limitar altura máxima
   },
   listaProcesos: {
-    gap: 12,
-    paddingBottom: 24,
+    paddingVertical: 8,
   },
   itemProceso: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    backgroundColor: "#F8FAFC",
+    marginBottom: 8,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-  },
-  numeroCirculo: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#3B82F6",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  numeroTexto: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   infoProceso: {
     flex: 1,
-    marginLeft: 16,
   },
   nombreProceso: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#374151",
+    fontWeight: "700",
+    color: "#1E293B",
+    marginBottom: 4,
   },
   aplicacionProceso: {
     fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "500",
+    color: "#64748B",
+    lineHeight: 20,
+    marginBottom: 8,
   },
-  imagenesProceso: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "500",
+  procesoFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  imagenesBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  imagenesTexto: {
+    fontSize: 12,
+    color: "#3B82F6",
+    fontWeight: "600",
   },
   botonConfigVoz: {
     padding: 8,
