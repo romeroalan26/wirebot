@@ -1611,15 +1611,13 @@ const AsistenteVoz: React.FC = () => {
           animationType="slide"
           onRequestClose={handleBackButton}
         >
-          <TouchableOpacity
-            activeOpacity={1}
+          <View
             style={{
               flex: 1,
               backgroundColor: "rgba(0,0,0,0.5)",
               justifyContent: "center",
               alignItems: "center",
             }}
-            onPress={handleBackButton}
           >
             <View
               style={{
@@ -1660,9 +1658,8 @@ const AsistenteVoz: React.FC = () => {
                 showsVerticalScrollIndicator={false}
               >
                 {/* Control de Velocidad */}
-                <Text style={styles.configLabel}>⚡ Velocidad de Voz:</Text>
+                <Text style={styles.configLabel}>⚡ Velocidad de Voz</Text>
                 <View style={styles.velocidadContainer}>
-                  <Text style={styles.velocidadLabel}>Lenta</Text>
                   <View style={styles.velocidadSlider}>
                     {[0.5, 0.6, 0.7, 0.8, 0.9, 1.0].map((speed) => (
                       <TouchableOpacity
@@ -1673,33 +1670,70 @@ const AsistenteVoz: React.FC = () => {
                             styles.velocidadDotSeleccionado,
                         ]}
                         onPress={() => setVoiceSpeed(speed)}
-                      />
+                      >
+                        <Text
+                          style={[
+                            styles.velocidadDotText,
+                            Math.abs(voiceSpeed - speed) < 0.05 &&
+                              styles.velocidadDotTextSeleccionado,
+                          ]}
+                        >
+                          {speed.toFixed(1)}x
+                        </Text>
+                      </TouchableOpacity>
                     ))}
                   </View>
-                  <Text style={styles.velocidadLabel}>Rápida</Text>
+                  <Text style={styles.velocidadValue}>
+                    Velocidad actual: {voiceSpeed.toFixed(1)}x
+                  </Text>
                 </View>
-                <Text style={styles.velocidadValue}>
-                  Velocidad: {voiceSpeed.toFixed(1)}x
-                </Text>
 
-                {/* Botón de Prueba */}
-                <TouchableOpacity
-                  style={styles.botonPruebaVoz}
-                  onPress={() => {
-                    const config = obtenerConfiguracionVozLatina();
-                    console.log("🔊 Probando voz con configuración:", config);
+                {/* Botones de control de voz */}
+                <View style={styles.controlVozContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.botonControlVoz,
+                      isSpeaking
+                        ? styles.botonControlVozActivo
+                        : styles.botonControlVozInactivo,
+                    ]}
+                    onPress={() => {
+                      if (isSpeaking) {
+                        detenerVoz();
+                      } else {
+                        const config = obtenerConfiguracionVozLatina();
+                        console.log(
+                          "🔊 Probando voz con configuración:",
+                          config
+                        );
+                        hablar(
+                          `Hola, soy el asistente de voz de MERCAPLAS a velocidad ${voiceSpeed}. Esta es una prueba de mi configuración para ayudarte con información de procesos en nuestra fábrica.`
+                        );
+                      }
+                    }}
+                  >
+                    <Ionicons
+                      name={isSpeaking ? "pause-circle" : "play-circle"}
+                      size={24}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.textoControlVoz}>
+                      {isSpeaking ? "Pausar Voz" : "Probar Voz"}
+                    </Text>
+                  </TouchableOpacity>
 
-                    hablar(
-                      `Hola, soy el asistente de voz de MERCAPLAS a velocidad ${voiceSpeed}. Esta es una prueba de mi configuración para ayudarte con información de procesos en nuestra fábrica.`
-                    );
-                  }}
-                >
-                  <Ionicons name="play-circle" size={24} color="#FFFFFF" />
-                  <Text style={styles.textoPruebaVoz}>Probar Voz</Text>
-                </TouchableOpacity>
+                  {isSpeaking && (
+                    <View style={styles.estadoVozContainer}>
+                      <Ionicons name="volume-high" size={16} color="#3B82F6" />
+                      <Text style={styles.estadoVozTexto}>
+                        Reproduciendo a {voiceSpeed.toFixed(1)}x
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </ScrollView>
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
 
         {/* Replace the old menu modal with the new OptionsMenu component */}
@@ -2647,33 +2681,53 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   velocidadContainer: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: 20,
-  },
-  velocidadLabel: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "600",
+    padding: 12,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
   velocidadSlider: {
     flexDirection: "row",
-    gap: 8,
+    justifyContent: "space-between",
+    width: "100%",
+    marginBottom: 8,
   },
   velocidadDot: {
     width: 40,
-    height: 10,
-    borderRadius: 5,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#E2E8F0",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
   },
   velocidadDotSeleccionado: {
     backgroundColor: "#3B82F6",
+    borderColor: "#2563EB",
+    transform: [{ scale: 1.1 }],
+  },
+  velocidadDotText: {
+    fontSize: 13,
+    color: "#64748B",
+    fontWeight: "600",
+  },
+  velocidadDotTextSeleccionado: {
+    color: "#FFFFFF",
   },
   velocidadValue: {
     fontSize: 14,
-    color: "#6B7280",
+    color: "#1E40AF",
     fontWeight: "600",
+    textAlign: "center",
+    backgroundColor: "#EFF6FF",
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 6,
   },
   botonPruebaVoz: {
     flexDirection: "row",
@@ -2865,6 +2919,53 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#E2E8F0",
     padding: 4,
+  },
+  controlVozContainer: {
+    marginTop: 16,
+    gap: 8,
+  },
+  botonControlVoz: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    gap: 8,
+    shadowColor: "#3B82F6",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 2,
+  },
+  botonControlVozActivo: {
+    backgroundColor: "#EF4444",
+    borderColor: "#DC2626",
+  },
+  botonControlVozInactivo: {
+    backgroundColor: "#3B82F6",
+    borderColor: "#2563EB",
+  },
+  textoControlVoz: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  estadoVozContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    padding: 8,
+    backgroundColor: "#EFF6FF",
+    borderRadius: 8,
+  },
+  estadoVozTexto: {
+    fontSize: 14,
+    color: "#1E40AF",
+    fontWeight: "600",
   },
 });
 

@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Always answer in spanish. 
+Always explain me why you need to create a file before creating it. 
+Never remove a functionality, before asking me if we can remove it. 
+
+The component AsistenteVoz.tsx and supabaseClient.ts already exist within the root of the project. DO NOT TRY TO CREATE A DUPLICATE ONE ANYWHERE ELSE
