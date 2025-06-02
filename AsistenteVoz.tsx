@@ -34,6 +34,7 @@ import { AgregarProcesoModal } from "./src/components/AgregarProcesoModal";
 import { EliminarProcesoModal } from "./src/components/EliminarProcesoModal";
 import { supabase } from "./supabaseClient";
 import { User } from "@supabase/supabase-js";
+import { CreateUserModal } from "./src/components/CreateUserModal";
 
 interface Proceso {
   id: string;
@@ -76,6 +77,7 @@ const AsistenteVoz: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [showEliminarProceso, setShowEliminarProceso] = useState(false);
   const [showAdminProcesosModal, setShowAdminProcesosModal] = useState(false);
+  const [showCreateUser, setShowCreateUser] = useState(false);
 
   // Solo configuración de velocidad de voz - idioma fijo es-MX
   const [voiceSpeed, setVoiceSpeed] = useState(0.75); // Velocidad por defecto
@@ -336,12 +338,7 @@ const AsistenteVoz: React.FC = () => {
       return;
     }
 
-    // 2. COMANDOS ESPECIALES
-    if (manejarComandosEspeciales(textoLimpio)) {
-      return;
-    }
-
-    // 3. NO SE ENCONTRÓ NADA - SUGERENCIAS INTELIGENTES
+    // 2. NO SE ENCONTRÓ NADA - SUGERENCIAS INTELIGENTES
     console.log("❌ No se detectó comando válido en:", texto);
     const sugerencia = generarSugerenciaInteligente(textoLimpio);
     setError(`No se reconoció el comando "${texto}". ${sugerencia}`);
@@ -441,45 +438,6 @@ const AsistenteVoz: React.FC = () => {
     setProcesoSeleccionado(proceso);
     setError("");
     hablar(proceso.descripcion);
-  };
-
-  const manejarComandosEspeciales = (texto: string): boolean => {
-    // Comandos de ayuda
-    if (
-      texto.includes("ayuda") ||
-      texto.includes("help") ||
-      texto.includes("como usar")
-    ) {
-      mostrarAyuda();
-      return true;
-    }
-
-    // Listar todos los procesos
-    if (
-      texto.includes("lista") ||
-      texto.includes("todos") ||
-      texto.includes("disponibles")
-    ) {
-      listarTodosLosProcesos();
-      return true;
-    }
-
-    return false;
-  };
-
-  const mostrarAyuda = () => {
-    const mensaje = `Puedes usar comandos como: "proceso OCTAVIN", "cómo hacer trefiladora", "dame información del OCTAVIN", "cuál proceso uso para trefiladora", o simplemente di el nombre.`;
-    setError(mensaje);
-    hablar(mensaje);
-  };
-
-  const listarTodosLosProcesos = () => {
-    const lista = procesos.map((p) => `Proceso: ${p.titulo}`).join(", ");
-    const mensaje = `Procesos disponibles: ${lista}`;
-    setError(mensaje);
-    hablar(
-      `Tenemos ${procesos.length} tipos de procesos disponibles. ${lista}`
-    );
   };
 
   const generarSugerenciaInteligente = (texto: string): string => {
@@ -1445,7 +1403,7 @@ const AsistenteVoz: React.FC = () => {
                     ¿Cómo administrar procesos?
                   </Text>
                   {"\n"}
-                  1. Abre el menú y selecciona "Administrar Procesos".{"\n"}
+                  1. Abre el menú y selecciona "Administrar".{"\n"}
                   2. Inicia sesión si es necesario.{"\n"}
                   3. Elige si quieres agregar o eliminar procesos.
                 </Text>
@@ -1857,28 +1815,37 @@ const AsistenteVoz: React.FC = () => {
 
       <LoginModal
         visible={showLogin}
-        onClose={() => setShowLogin(false)}
+        onClose={() => {
+          setShowLogin(false);
+          setShowOptionsMenu(true);
+        }}
         onSuccess={handleLoginSuccess}
       />
 
       <AgregarProcesoModal
         visible={showAgregarProceso}
-        onClose={() => setShowAgregarProceso(false)}
+        onClose={() => {
+          setShowAgregarProceso(false);
+          setShowAdminProcesosModal(true);
+        }}
         onSubmit={handleAgregarProceso}
         onBack={() => {
           setShowAgregarProceso(false);
-          setShowOptionsMenu(true);
+          setShowAdminProcesosModal(true);
         }}
       />
 
       <EliminarProcesoModal
         visible={showEliminarProceso}
-        onClose={() => setShowEliminarProceso(false)}
+        onClose={() => {
+          setShowEliminarProceso(false);
+          setShowAdminProcesosModal(true);
+        }}
         procesos={procesos}
         onProcesoEliminado={handleProcesoEliminado}
         onBack={() => {
           setShowEliminarProceso(false);
-          setShowOptionsMenu(true);
+          setShowAdminProcesosModal(true);
         }}
       />
 
@@ -1941,7 +1908,7 @@ const AsistenteVoz: React.FC = () => {
                 color: "#1F2937",
               }}
             >
-              Administrar Procesos
+              Administrar
             </Text>
             <TouchableOpacity
               style={{
@@ -1981,6 +1948,24 @@ const AsistenteVoz: React.FC = () => {
             </TouchableOpacity>
             <TouchableOpacity
               style={{
+                backgroundColor: "#3B82F6",
+                padding: 16,
+                borderRadius: 10,
+                marginBottom: 16,
+                width: "100%",
+                alignItems: "center",
+              }}
+              onPress={() => {
+                setShowAdminProcesosModal(false);
+                setShowCreateUser(true);
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>
+                Crear Usuario
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
                 backgroundColor: "#64748B",
                 padding: 12,
                 borderRadius: 8,
@@ -1996,6 +1981,15 @@ const AsistenteVoz: React.FC = () => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <CreateUserModal
+        visible={showCreateUser}
+        onClose={() => setShowCreateUser(false)}
+        onBack={() => {
+          setShowCreateUser(false);
+          setShowAdminProcesosModal(true);
+        }}
+      />
     </>
   );
 };

@@ -146,7 +146,7 @@ export const OptionsMenu: React.FC<OptionsMenuProps> = ({
               }}
             >
               <Ionicons name="settings-outline" size={24} color="#6366F1" />
-              <Text style={styles.menuItemText}>Administrar Procesos</Text>
+              <Text style={styles.menuItemText}>Administrar</Text>
               <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
             </TouchableOpacity>
           </View>

@@ -112,7 +112,7 @@ export const AgregarProcesoModal: React.FC<AgregarProcesoModalProps> = ({
 
     setLoading(true);
     try {
-      onSubmit({
+      await onSubmit({
         titulo: titulo.trim(),
         descripcion: descripcion.trim(),
         imagenes,
@@ -180,65 +180,95 @@ export const AgregarProcesoModal: React.FC<AgregarProcesoModalProps> = ({
             <Text style={styles.title}>Agregar Nuevo Proceso</Text>
           </View>
 
-          <ScrollView style={styles.scrollContent}>
-            <TextInput
-              style={styles.input}
-              placeholder="Título del proceso"
-              value={titulo}
-              onChangeText={setTitulo}
-            />
-
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Descripción del proceso"
-              value={descripcion}
-              onChangeText={setDescripcion}
-              multiline
-              numberOfLines={4}
-            />
-
-            <TouchableOpacity
-              style={styles.imageButton}
-              onPress={seleccionarImagenes}
+          {loading ? (
+            <View
+              style={{
+                alignItems: "center",
+                justifyContent: "center",
+                marginVertical: 40,
+              }}
             >
-              <Ionicons name="images-outline" size={24} color="#3B82F6" />
-              <Text style={styles.imageButtonText}>Seleccionar Imágenes</Text>
-            </TouchableOpacity>
+              <ActivityIndicator size="large" color="#3B82F6" />
+              <Text
+                style={{
+                  marginTop: 16,
+                  fontSize: 16,
+                  color: "#3B82F6",
+                  fontWeight: "bold",
+                }}
+              >
+                Creando proceso...
+              </Text>
+            </View>
+          ) : (
+            <>
+              <ScrollView style={styles.scrollContent}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Título del proceso"
+                  value={titulo}
+                  onChangeText={setTitulo}
+                  editable={!loading}
+                />
 
-            {imagenes.length > 0 && (
-              <View style={styles.imagePreviewContainer}>
-                {imagenes.map((imagen, index) => (
-                  <View key={index} style={styles.imagePreview}>
-                    <Image
-                      source={{ uri: imagen.uri }}
-                      style={styles.previewImage}
-                    />
-                    <TouchableOpacity
-                      style={styles.deleteImageButton}
-                      onPress={() => eliminarImagen(index)}
-                    >
-                      <Ionicons name="close-circle" size={24} color="#EF4444" />
-                    </TouchableOpacity>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Descripción del proceso"
+                  value={descripcion}
+                  onChangeText={setDescripcion}
+                  multiline
+                  numberOfLines={4}
+                  editable={!loading}
+                />
+
+                <TouchableOpacity
+                  style={styles.imageButton}
+                  onPress={seleccionarImagenes}
+                  disabled={loading}
+                >
+                  <Ionicons name="images-outline" size={24} color="#3B82F6" />
+                  <Text style={styles.imageButtonText}>
+                    Seleccionar Imágenes
+                  </Text>
+                </TouchableOpacity>
+
+                {imagenes.length > 0 && (
+                  <View style={styles.imagePreviewContainer}>
+                    {imagenes.map((imagen, index) => (
+                      <View key={index} style={styles.imagePreview}>
+                        <Image
+                          source={{ uri: imagen.uri }}
+                          style={styles.previewImage}
+                        />
+                        <TouchableOpacity
+                          style={styles.deleteImageButton}
+                          onPress={() => eliminarImagen(index)}
+                          disabled={loading}
+                        >
+                          <Ionicons
+                            name="close-circle"
+                            size={24}
+                            color="#EF4444"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
-            )}
+                )}
 
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                loading && styles.submitButtonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.submitButtonText}>Guardar Proceso</Text>
-              )}
-            </TouchableOpacity>
-          </ScrollView>
+                <TouchableOpacity
+                  style={[
+                    styles.submitButton,
+                    loading && styles.submitButtonDisabled,
+                  ]}
+                  onPress={handleSubmit}
+                  disabled={loading}
+                >
+                  <Text style={styles.submitButtonText}>Guardar Proceso</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </>
+          )}
         </View>
       </TouchableOpacity>
     </Modal>

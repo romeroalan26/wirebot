@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../supabaseClient";
+import { ResetPasswordModal } from "./ResetPasswordModal";
 
 interface LoginModalProps {
   visible: boolean;
@@ -28,6 +29,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -56,98 +58,114 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <View style={styles.modalContainer}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Iniciar Sesión</Text>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={24} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons
-                name="mail-outline"
-                size={20}
-                color="#64748B"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="tu@email.com"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Contraseña</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color="#64748B"
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="••••••••"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                placeholderTextColor="#94A3B8"
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color="#64748B"
-                />
+    <>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onRequestClose={onClose}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Iniciar Sesión</Text>
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                <Ionicons name="close" size={24} color="#64748B" />
               </TouchableOpacity>
             </View>
-          </View>
 
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Email</Text>
+              <View style={styles.inputWrapper}>
                 <Ionicons
-                  name="log-in-outline"
+                  name="mail-outline"
                   size={20}
-                  color="#FFFFFF"
-                  style={styles.buttonIcon}
+                  color="#64748B"
+                  style={styles.inputIcon}
                 />
-                <Text style={styles.buttonText}>Iniciar Sesión</Text>
-              </>
-            )}
-          </TouchableOpacity>
+                <TextInput
+                  style={styles.input}
+                  placeholder="tu@email.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+            </View>
 
-          <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-            <Text style={styles.cancelButtonText}>Cancelar</Text>
-          </TouchableOpacity>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Contraseña</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color="#64748B"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="••••••••"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  placeholderTextColor="#94A3B8"
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color="#64748B"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.forgotPasswordButton}
+              onPress={() => setShowResetPassword(true)}
+            >
+              <Text style={styles.forgotPasswordText}>
+                ¿Olvidaste tu contraseña?
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons
+                    name="log-in-outline"
+                    size={20}
+                    color="#FFFFFF"
+                    style={styles.buttonIcon}
+                  />
+                  <Text style={styles.buttonText}>Iniciar Sesión</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+              <Text style={styles.cancelButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      <ResetPasswordModal
+        visible={showResetPassword}
+        onClose={() => setShowResetPassword(false)}
+      />
+    </>
   );
 };
 
@@ -226,6 +244,15 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: 8,
   },
+  forgotPasswordButton: {
+    alignSelf: "flex-end",
+    marginBottom: 20,
+  },
+  forgotPasswordText: {
+    color: "#3B82F6",
+    fontSize: 14,
+    fontWeight: "600",
+  },
   button: {
     backgroundColor: "#3B82F6",
     borderRadius: 12,
@@ -254,16 +281,15 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
-    letterSpacing: 0.3,
   },
   cancelButton: {
-    padding: 16,
-    alignItems: "center",
-    marginTop: 8,
+    marginTop: 16,
+    padding: 12,
   },
   cancelButtonText: {
     color: "#64748B",
     fontSize: 16,
+    textAlign: "center",
     fontWeight: "600",
   },
 });

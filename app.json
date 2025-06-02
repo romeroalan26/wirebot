@@ -2,6 +2,7 @@
   "expo": {
     "name": "WireBot",
     "slug": "asistente-fabrica-alambres",
+    "scheme": "asistente-fabrica-alambres",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
